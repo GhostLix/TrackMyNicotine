@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ProductEditor } from '@/components/product-editor';
 import { ScoreBadge } from '@/components/score-badge';
 import { Colors, Radius, Shadow, Spacing } from '@/constants/theme';
-import { CATEGORY_LABELS, CATEGORY_ORDER, type Category } from '@/data/nicotine-model';
+import { CATEGORY_LABELS, CATEGORY_ORDER } from '@/data/nicotine-model';
 import {
   CATALOG,
   formatMgPerPuff,
@@ -27,16 +27,17 @@ function normalize(s: string): string {
 export default function ProdottiScreen() {
   const {
     customProducts,
+    enabledProducts,
     enabledProductIds,
     selectedProduct,
     toggleEnabled,
+    moveEnabled,
     addProduct,
     updateProduct,
     deleteProduct,
   } = useNicotine();
   const [editor, setEditor] = useState<EditorState>({ open: false });
   const [query, setQuery] = useState('');
-  const [open, setOpen] = useState<Partial<Record<Category, boolean>>>({});
   const [lastWarning, setLastWarning] = useState(false);
 
   const enabled = useMemo(() => new Set(enabledProductIds), [enabledProductIds]);
@@ -52,9 +53,56 @@ export default function ProdottiScreen() {
     setLastWarning(!ok);
   };
 
+  const renderDefaultRow = (product: Product, index: number) => {
+    const inUse = product.id === selectedProduct.id;
+    const first = index === 0;
+    const last = index === enabledProducts.length - 1;
+    const onlyOne = enabledProducts.length === 1;
+    return (
+      <View key={product.id} style={[styles.row, index > 0 && styles.rowDivider]}>
+        <View style={styles.rowText}>
+          <View style={styles.rowTitleLine}>
+            <Text style={styles.rowName} numberOfLines={1}>
+              {product.name}
+            </Text>
+            {inUse && (
+              <View style={styles.inUse}>
+                <Text style={styles.inUseText}>In uso</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.rowDetail} numberOfLines={1}>
+            {formatMgPerPuff(product.mgPerPuff)} mg/tiro
+          </Text>
+        </View>
+        <ScoreBadge score={scoreFor(product.mgPerPuff)} />
+        <View style={styles.orderButtons}>
+          <IconButton
+            icon="chevron-up"
+            label={`Sposta su ${product.name}`}
+            disabled={first}
+            onPress={() => moveEnabled(product.id, -1)}
+          />
+          <IconButton
+            icon="chevron-down"
+            label={`Sposta giù ${product.name}`}
+            disabled={last}
+            onPress={() => moveEnabled(product.id, 1)}
+          />
+          <IconButton
+            icon="close"
+            label={`Rimuovi ${product.name} dai predefiniti`}
+            disabled={onlyOne}
+            danger
+            onPress={() => toggle(product.id)}
+          />
+        </View>
+      </View>
+    );
+  };
+
   const renderRow = (product: Product, index: number) => {
     const checked = enabled.has(product.id);
-    const inUse = product.id === selectedProduct.id;
     return (
       <Pressable
         key={product.id}
@@ -71,9 +119,9 @@ export default function ProdottiScreen() {
             <Text style={styles.rowName} numberOfLines={1}>
               {product.name}
             </Text>
-            {inUse && (
+            {product.custom && (
               <View style={styles.inUse}>
-                <Text style={styles.inUseText}>In uso</Text>
+                <Text style={styles.inUseText}>Tuo</Text>
               </View>
             )}
           </View>
@@ -97,17 +145,14 @@ export default function ProdottiScreen() {
     );
   };
 
-  const customVisible = customProducts.filter(matches);
-  const sections = CATEGORY_ORDER.map((category) => {
-    const all = CATALOG.filter((p) => p.category === category);
-    return {
-      category,
-      items: all.filter(matches),
-      total: all.length,
-      checked: all.filter((p) => enabled.has(p.id)).length,
-    };
-  }).filter((s) => s.items.length > 0);
-  const nothingFound = searching && customVisible.length === 0 && sections.length === 0;
+  // Tutti i prodotti (catalogo + tuoi), per tipo, in ordine di nicotina crescente.
+  const sections = CATEGORY_ORDER.map((category) => ({
+    category,
+    items: [...customProducts, ...CATALOG]
+      .filter((p) => p.category === category && matches(p))
+      .sort((x, y) => x.mgPerPuff - y.mgPerPuff || x.name.localeCompare(y.name, 'it')),
+  })).filter((s) => s.items.length > 0);
+  const nothingFound = searching && sections.length === 0;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -115,7 +160,7 @@ export default function ProdottiScreen() {
         <View style={styles.header}>
           <View style={styles.headerText}>
             <Text style={styles.title}>Prodotti</Text>
-            <Text style={styles.subtitle}>Spunta quelli che usi: compaiono nella Home.</Text>
+            <Text style={styles.subtitle}>Scegli e ordina i prodotti che usi.</Text>
           </View>
           <Pressable
             onPress={() => setEditor({ open: true })}
@@ -127,6 +172,15 @@ export default function ProdottiScreen() {
           </Pressable>
         </View>
 
+        <Text style={styles.sectionTitle}>Predefiniti</Text>
+        <Text style={styles.sectionHint}>Compaiono in questo ordine nella tendina della Home.</Text>
+        <View style={styles.card}>{enabledProducts.map(renderDefaultRow)}</View>
+        {lastWarning && (
+          <Text style={styles.warning}>Tieni almeno un prodotto tra i predefiniti.</Text>
+        )}
+
+        <Text style={[styles.sectionTitle, styles.sectionGap]}>Tutti i prodotti</Text>
+        <Text style={styles.sectionHint}>Spunta un prodotto per aggiungerlo ai predefiniti.</Text>
         <View style={styles.search}>
           <Ionicons name="search" size={18} color={Colors.textMuted} />
           <TextInput
@@ -145,10 +199,6 @@ export default function ProdottiScreen() {
           )}
         </View>
 
-        {lastWarning && (
-          <Text style={styles.warning}>Tieni almeno un prodotto spuntato per usare la Home.</Text>
-        )}
-
         {nothingFound && (
           <Pressable
             onPress={() => setEditor({ open: true })}
@@ -161,43 +211,14 @@ export default function ProdottiScreen() {
           </Pressable>
         )}
 
-        {customVisible.length > 0 && (
-          <>
-            <Text style={styles.sectionTitle}>I tuoi prodotti</Text>
-            <View style={styles.card}>{customVisible.map(renderRow)}</View>
-          </>
-        )}
+        {sections.map(({ category, items }) => (
+          <View key={category} style={styles.group}>
+            <Text style={styles.categoryName}>{CATEGORY_LABELS[category]}</Text>
+            <View style={styles.card}>{items.map(renderRow)}</View>
+          </View>
+        ))}
 
-        {sections.map(({ category, items, total, checked }) => {
-          const expanded = searching || open[category] === true;
-          return (
-            <View key={category} style={styles.card}>
-              <Pressable
-                onPress={() => setOpen((o) => ({ ...o, [category]: !expanded }))}
-                disabled={searching}
-                accessibilityRole="button"
-                accessibilityState={{ expanded }}
-                style={({ pressed }) => [styles.categoryHeader, pressed && styles.pressed]}>
-                <View style={styles.flex}>
-                  <Text style={styles.categoryName}>{CATEGORY_LABELS[category]}</Text>
-                  <Text style={styles.categoryMeta}>
-                    {searching ? `${items.length} risultati` : `${checked} spuntati su ${total}`}
-                  </Text>
-                </View>
-                {!searching && (
-                  <Ionicons
-                    name={expanded ? 'chevron-up' : 'chevron-down'}
-                    size={20}
-                    color={Colors.primary}
-                  />
-                )}
-              </Pressable>
-              {expanded && <View style={styles.categoryBody}>{items.map(renderRow)}</View>}
-            </View>
-          );
-        })}
-
-        <Text style={styles.sectionTitle}>Come si calcola il punteggio</Text>
+        <Text style={[styles.sectionTitle, styles.sectionGap]}>Come si calcola il punteggio</Text>
         <View style={[styles.card, styles.legend]}>
           {SCORE_THRESHOLDS.map((t, i) => {
             const from = i === 0 ? 0 : SCORE_THRESHOLDS[i - 1].maxMg;
@@ -243,6 +264,38 @@ export default function ProdottiScreen() {
         }
       />
     </SafeAreaView>
+  );
+}
+
+function IconButton({
+  icon,
+  label,
+  disabled,
+  danger,
+  onPress,
+}: {
+  icon: 'chevron-up' | 'chevron-down' | 'close';
+  label: string;
+  disabled?: boolean;
+  danger?: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      hitSlop={4}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !!disabled }}
+      style={({ pressed }) => [
+        styles.iconButton,
+        danger && styles.iconButtonDanger,
+        disabled && styles.iconButtonDisabled,
+        pressed && styles.pressed,
+      ]}>
+      <Ionicons name={icon} size={16} color={danger ? Colors.danger : Colors.primary} />
+    </Pressable>
   );
 }
 
@@ -327,26 +380,41 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...Shadow,
   },
-  categoryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: Spacing.md,
+  sectionHint: {
+    fontSize: 13,
+    color: Colors.textMuted,
+    marginTop: -6,
+  },
+  sectionGap: {
+    marginTop: Spacing.lg,
+  },
+  group: {
     gap: Spacing.sm,
+    marginTop: Spacing.sm,
   },
   categoryName: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '800',
     color: Colors.text,
+    paddingHorizontal: 4,
   },
-  categoryMeta: {
-    fontSize: 12,
-    color: Colors.textMuted,
-    marginTop: 2,
+  orderButtons: {
+    flexDirection: 'row',
+    gap: 6,
   },
-  categoryBody: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: Colors.border,
+  iconButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: Colors.primarySoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconButtonDanger: {
+    backgroundColor: Colors.dangerSoft,
+  },
+  iconButtonDisabled: {
+    opacity: 0.3,
   },
   row: {
     flexDirection: 'row',

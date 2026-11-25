@@ -41,7 +41,7 @@ type NicotineStore = PersistedState & {
   now: number;
   /** Catalogo + prodotti dell'utente. */
   products: Product[];
-  /** Solo quelli con la spunta (prima i prodotti dell'utente). */
+  /** I predefiniti, nell'ordine scelto dall'utente. */
   enabledProducts: Product[];
   selectedProduct: Product;
   addPuff: () => void;
@@ -52,6 +52,8 @@ type NicotineStore = PersistedState & {
   deleteProduct: (id: string) => void;
   /** Mette o toglie la spunta. Restituisce false se era l'ultimo prodotto attivo. */
   toggleEnabled: (id: string) => boolean;
+  /** Sposta un predefinito di una posizione (-1 su, +1 giù). */
+  moveEnabled: (id: string, delta: -1 | 1) => void;
   setDailyLimit: (mg: number) => void;
   resetAll: () => void;
 };
@@ -62,9 +64,12 @@ function allProducts(s: PersistedState): Product[] {
   return [...s.customProducts, ...CATALOG];
 }
 
+/** I predefiniti, nell'ordine scelto dall'utente (lo stesso della tendina della Home). */
 function enabledOf(s: PersistedState): Product[] {
-  const enabled = new Set(s.enabledProductIds);
-  const list = allProducts(s).filter((p) => enabled.has(p.id));
+  const byId = new Map(allProducts(s).map((p) => [p.id, p]));
+  const list = s.enabledProductIds
+    .map((id) => byId.get(id))
+    .filter((p): p is Product => p !== undefined);
   return list.length > 0 ? list : [CATALOG[0]];
 }
 
@@ -179,6 +184,18 @@ export function NicotineProvider({ children }: { children: ReactNode }) {
     [state],
   );
 
+  const moveEnabled = useCallback((id: string, delta: -1 | 1) => {
+    setState((s) => {
+      // Si lavora sulla lista visibile, così gli id di prodotti non più esistenti non contano.
+      const order = enabledOf(s).map((p) => p.id);
+      const from = order.indexOf(id);
+      const to = from + delta;
+      if (from < 0 || to < 0 || to >= order.length) return s;
+      [order[from], order[to]] = [order[to], order[from]];
+      return { ...s, enabledProductIds: order };
+    });
+  }, []);
+
   const setDailyLimit = useCallback((mg: number) => {
     setState((s) => ({ ...s, dailyLimitMg: mg }));
   }, []);
@@ -200,6 +217,7 @@ export function NicotineProvider({ children }: { children: ReactNode }) {
       updateProduct,
       deleteProduct,
       toggleEnabled,
+      moveEnabled,
       setDailyLimit,
       resetAll,
     }),
@@ -217,6 +235,7 @@ export function NicotineProvider({ children }: { children: ReactNode }) {
       updateProduct,
       deleteProduct,
       toggleEnabled,
+      moveEnabled,
       setDailyLimit,
       resetAll,
     ],
