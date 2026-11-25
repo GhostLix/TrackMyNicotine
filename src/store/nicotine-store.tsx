@@ -52,8 +52,8 @@ type NicotineStore = PersistedState & {
   deleteProduct: (id: string) => void;
   /** Mette o toglie la spunta. Restituisce false se era l'ultimo prodotto attivo. */
   toggleEnabled: (id: string) => boolean;
-  /** Sposta un predefinito di una posizione (-1 su, +1 giù). */
-  moveEnabled: (id: string, delta: -1 | 1) => void;
+  /** Sposta un predefinito dalla posizione `from` alla posizione `to` (trascinamento). */
+  reorderEnabled: (from: number, to: number) => void;
   setDailyLimit: (mg: number) => void;
   resetAll: () => void;
 };
@@ -184,15 +184,15 @@ export function NicotineProvider({ children }: { children: ReactNode }) {
     [state],
   );
 
-  const moveEnabled = useCallback((id: string, delta: -1 | 1) => {
+  const reorderEnabled = useCallback((from: number, to: number) => {
     setState((s) => {
       // Si lavora sulla lista visibile, così gli id di prodotti non più esistenti non contano.
       const order = enabledOf(s).map((p) => p.id);
-      const from = order.indexOf(id);
-      const to = from + delta;
-      if (from < 0 || to < 0 || to >= order.length) return s;
-      [order[from], order[to]] = [order[to], order[from]];
-      return { ...s, enabledProductIds: order };
+      if (from === to || from < 0 || to < 0 || from >= order.length || to >= order.length) return s;
+      const [moved] = order.splice(from, 1);
+      order.splice(to, 0, moved);
+      // Riordinare non deve cambiare il prodotto in uso.
+      return { ...s, selectedProductId: findProduct(s, s.selectedProductId).id, enabledProductIds: order };
     });
   }, []);
 
@@ -217,7 +217,7 @@ export function NicotineProvider({ children }: { children: ReactNode }) {
       updateProduct,
       deleteProduct,
       toggleEnabled,
-      moveEnabled,
+      reorderEnabled,
       setDailyLimit,
       resetAll,
     }),
@@ -235,7 +235,7 @@ export function NicotineProvider({ children }: { children: ReactNode }) {
       updateProduct,
       deleteProduct,
       toggleEnabled,
-      moveEnabled,
+      reorderEnabled,
       setDailyLimit,
       resetAll,
     ],

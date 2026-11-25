@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DraggableList } from '@/components/draggable-list';
 import { ProductEditor } from '@/components/product-editor';
 import { ScoreBadge } from '@/components/score-badge';
 import { Colors, Radius, Shadow, Spacing } from '@/constants/theme';
@@ -18,6 +19,8 @@ import { useNicotine } from '@/store/nicotine-store';
 
 type EditorState = { open: false } | { open: true; product?: Product };
 
+const DEFAULT_ROW_HEIGHT = 64;
+
 const noWebOutline = Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null;
 
 function normalize(s: string): string {
@@ -31,7 +34,7 @@ export default function ProdottiScreen() {
     enabledProductIds,
     selectedProduct,
     toggleEnabled,
-    moveEnabled,
+    reorderEnabled,
     addProduct,
     updateProduct,
     deleteProduct,
@@ -39,6 +42,7 @@ export default function ProdottiScreen() {
   const [editor, setEditor] = useState<EditorState>({ open: false });
   const [query, setQuery] = useState('');
   const [lastWarning, setLastWarning] = useState(false);
+  const [dragging, setDragging] = useState(false);
 
   const enabled = useMemo(() => new Set(enabledProductIds), [enabledProductIds]);
   const q = normalize(query.trim());
@@ -53,13 +57,24 @@ export default function ProdottiScreen() {
     setLastWarning(!ok);
   };
 
-  const renderDefaultRow = (product: Product, index: number) => {
+  const renderDefaultRow = (
+    product: Product,
+    { index, isDragging, dragHandleProps }: { index: number; isDragging: boolean; dragHandleProps: object },
+  ) => {
     const inUse = product.id === selectedProduct.id;
-    const first = index === 0;
-    const last = index === enabledProducts.length - 1;
     const onlyOne = enabledProducts.length === 1;
     return (
-      <View key={product.id} style={[styles.row, index > 0 && styles.rowDivider]}>
+      <View style={[styles.row, styles.defaultRow, index > 0 && !isDragging && styles.rowDivider]}>
+        <View
+          {...dragHandleProps}
+          accessibilityLabel={`Trascina per riordinare ${product.name}`}
+          style={[styles.handle, (dragHandleProps as { style?: object }).style]}>
+          <Ionicons
+            name="reorder-three"
+            size={26}
+            color={isDragging ? Colors.primary : Colors.textMuted}
+          />
+        </View>
         <View style={styles.rowText}>
           <View style={styles.rowTitleLine}>
             <Text style={styles.rowName} numberOfLines={1}>
@@ -76,27 +91,13 @@ export default function ProdottiScreen() {
           </Text>
         </View>
         <ScoreBadge score={scoreFor(product.mgPerPuff)} />
-        <View style={styles.orderButtons}>
-          <IconButton
-            icon="chevron-up"
-            label={`Sposta su ${product.name}`}
-            disabled={first}
-            onPress={() => moveEnabled(product.id, -1)}
-          />
-          <IconButton
-            icon="chevron-down"
-            label={`Sposta giù ${product.name}`}
-            disabled={last}
-            onPress={() => moveEnabled(product.id, 1)}
-          />
-          <IconButton
-            icon="close"
-            label={`Rimuovi ${product.name} dai predefiniti`}
-            disabled={onlyOne}
-            danger
-            onPress={() => toggle(product.id)}
-          />
-        </View>
+        <IconButton
+          icon="close"
+          label={`Rimuovi ${product.name} dai predefiniti`}
+          disabled={onlyOne}
+          danger
+          onPress={() => toggle(product.id)}
+        />
       </View>
     );
   };
@@ -156,7 +157,10 @@ export default function ProdottiScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        scrollEnabled={!dragging}>
         <View style={styles.header}>
           <View style={styles.headerText}>
             <Text style={styles.title}>Prodotti</Text>
@@ -173,8 +177,17 @@ export default function ProdottiScreen() {
         </View>
 
         <Text style={styles.sectionTitle}>Predefiniti</Text>
-        <Text style={styles.sectionHint}>Compaiono in questo ordine nella tendina della Home.</Text>
-        <View style={styles.card}>{enabledProducts.map(renderDefaultRow)}</View>
+        <Text style={styles.sectionHint}>Tieni premuto ≡ e trascina per cambiare l’ordine della tendina nella Home.</Text>
+        <View style={styles.card}>
+          <DraggableList
+            items={enabledProducts}
+            keyOf={(p) => p.id}
+            rowHeight={DEFAULT_ROW_HEIGHT}
+            renderRow={renderDefaultRow}
+            onReorder={reorderEnabled}
+            onDragActiveChange={setDragging}
+          />
+        </View>
         {lastWarning && (
           <Text style={styles.warning}>Tieni almeno un prodotto tra i predefiniti.</Text>
         )}
@@ -274,7 +287,7 @@ function IconButton({
   danger,
   onPress,
 }: {
-  icon: 'chevron-up' | 'chevron-down' | 'close';
+  icon: 'close';
   label: string;
   disabled?: boolean;
   danger?: boolean;
@@ -398,9 +411,16 @@ const styles = StyleSheet.create({
     color: Colors.text,
     paddingHorizontal: 4,
   },
-  orderButtons: {
-    flexDirection: 'row',
-    gap: 6,
+  defaultRow: {
+    height: DEFAULT_ROW_HEIGHT,
+    paddingVertical: 0,
+    paddingLeft: Spacing.sm,
+  },
+  handle: {
+    width: 40,
+    height: DEFAULT_ROW_HEIGHT,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   iconButton: {
     width: 32,
