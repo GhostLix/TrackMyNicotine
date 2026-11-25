@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { Colors, Radius, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
+import { useStyles, useTheme } from '@/theme/theme-provider';
+import type { Theme } from '@/theme/themes';
 
 const PRESETS = [5, 10, 15, 20];
 
@@ -12,6 +14,8 @@ type Props = {
 };
 
 export function DailyLimitEditor({ initial, confirmLabel, onConfirm }: Props) {
+  const styles = useStyles(makeStyles);
+  const t = useTheme();
   const [text, setText] = useState(initial != null ? String(initial) : '');
   const value = Number(text.replace(',', '.'));
   const valid = Number.isFinite(value) && value > 0 && value <= 200;
@@ -24,7 +28,7 @@ export function DailyLimitEditor({ initial, confirmLabel, onConfirm }: Props) {
           onChangeText={setText}
           keyboardType="decimal-pad"
           placeholder="10"
-          placeholderTextColor={Colors.textMuted}
+          placeholderTextColor={t.colors.textMuted}
           style={styles.input}
           accessibilityLabel="Limite giornaliero in milligrammi"
         />
@@ -59,66 +63,64 @@ export function DailyLimitEditor({ initial, confirmLabel, onConfirm }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    gap: Spacing.md,
-  },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    backgroundColor: Colors.background,
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md,
-  },
-  input: {
-    flex: 1,
-    minWidth: 0,
-    // Su web il bordo di focus del browser sborda dal contenitore arrotondato.
-    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null),
-    fontSize: 28,
-    fontWeight: '800',
-    color: Colors.text,
-    paddingVertical: 12,
-  },
-  unit: {
-    fontSize: 14,
-    color: Colors.textMuted,
-    fontWeight: '600',
-  },
-  presets: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-  },
-  chip: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderRadius: Radius.sm,
-    backgroundColor: Colors.primarySoft,
-  },
-  chipActive: {
-    backgroundColor: Colors.primary,
-  },
-  chipText: {
-    color: Colors.primaryDark,
-    fontWeight: '700',
-  },
-  chipTextActive: {
-    color: '#FFFFFF',
-  },
-  confirm: {
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.md,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  confirmDisabled: {
-    opacity: 0.4,
-  },
-  confirmText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-});
+const makeStyles = (t: Theme) =>
+  StyleSheet.create({
+    container: {
+      gap: Spacing.md,
+    },
+    inputRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.sm,
+      backgroundColor: t.colors.background,
+      borderRadius: t.radius.md,
+      paddingHorizontal: Spacing.md,
+    },
+    input: {
+      flex: 1,
+      minWidth: 0,
+      // Su web il bordo di focus del browser sborda dal contenitore arrotondato.
+      ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null),
+      ...t.text(28, '800'),
+      color: t.colors.text,
+      paddingVertical: 12,
+    },
+    unit: {
+      ...t.text(14, '600'),
+      color: t.colors.textMuted,
+    },
+    presets: {
+      flexDirection: 'row',
+      gap: Spacing.sm,
+    },
+    chip: {
+      flex: 1,
+      alignItems: 'center',
+      paddingVertical: 10,
+      borderRadius: t.radius.sm,
+      backgroundColor: t.colors.primarySoft,
+    },
+    chipActive: {
+      backgroundColor: t.colors.primary,
+    },
+    chipText: {
+      color: t.colors.primaryDark,
+      ...t.weight('700'),
+    },
+    chipTextActive: {
+      color: t.colors.onPrimary,
+    },
+    confirm: {
+      backgroundColor: t.colors.primary,
+      borderRadius: t.radius.md,
+      paddingVertical: 16,
+      alignItems: 'center',
+    },
+    confirmDisabled: {
+      opacity: 0.4,
+    },
+    confirmText: {
+      color: t.colors.onPrimary,
+      ...t.text(16, '700'),
+    },
+  });

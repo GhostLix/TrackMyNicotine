@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 
 import { ScoreBadge } from '@/components/score-badge';
-import { Colors, Radius, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { CATEGORY_LABELS, CATEGORY_ORDER, describeSpecs, type Category } from '@/data/nicotine-model';
 import { formatMgPerPuff, scoreFor, type Product } from '@/data/products';
 import {
@@ -26,6 +26,8 @@ import {
   type AiLookupOutcome,
 } from '@/lib/ai-lookup';
 import type { ProductInput } from '@/store/nicotine-store';
+import { useStyles, useTheme } from '@/theme/theme-provider';
+import type { Theme } from '@/theme/themes';
 
 type Props = {
   visible: boolean;
@@ -64,6 +66,8 @@ type AiState =
   | { status: 'error'; message: string };
 
 function EditorBody({ product, onSave, onDelete, onClose }: Omit<Props, 'visible'>) {
+  const styles = useStyles(makeStyles);
+  const t = useTheme();
   const [name, setName] = useState(product?.name ?? '');
   const [detail, setDetail] = useState(product?.detail ?? '');
   const [category, setCategory] = useState<Category>(product?.category ?? 'usa_e_getta');
@@ -133,7 +137,7 @@ function EditorBody({ product, onSave, onDelete, onClose }: Omit<Props, 'visible
           {aiAvailable !== false && (
             <View style={styles.aiBox}>
               <View style={styles.aiHeader}>
-                <Ionicons name="sparkles" size={16} color={Colors.primary} />
+                <Ionicons name="sparkles" size={16} color={t.colors.primary} />
                 <Text style={styles.aiTitle}>Non sai quanta nicotina contiene?</Text>
               </View>
               <Text style={styles.aiBody}>Scrivi il nome del prodotto: l’AI cerca le specifiche per te.</Text>
@@ -142,7 +146,7 @@ function EditorBody({ product, onSave, onDelete, onClose }: Omit<Props, 'visible
                   value={aiQuery}
                   onChangeText={setAiQuery}
                   placeholder="Es. Elf Bar 600 mirtillo"
-                  placeholderTextColor={Colors.textMuted}
+                  placeholderTextColor={t.colors.textMuted}
                   style={[styles.input, styles.flex, noWebOutline]}
                   maxLength={120}
                   returnKeyType="search"
@@ -161,7 +165,7 @@ function EditorBody({ product, onSave, onDelete, onClose }: Omit<Props, 'visible
                     pressed && styles.pressed,
                   ]}>
                   {ai.status === 'loading' ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <ActivityIndicator size="small" color={t.colors.onPrimary} />
                   ) : (
                     <Text style={styles.aiButtonText}>Cerca</Text>
                   )}
@@ -182,7 +186,7 @@ function EditorBody({ product, onSave, onDelete, onClose }: Omit<Props, 'visible
               value={name}
               onChangeText={setName}
               placeholder="Es. Pod alla menta"
-              placeholderTextColor={Colors.textMuted}
+              placeholderTextColor={t.colors.textMuted}
               style={[styles.input, noWebOutline]}
               maxLength={60}
               accessibilityLabel="Nome del prodotto"
@@ -216,7 +220,7 @@ function EditorBody({ product, onSave, onDelete, onClose }: Omit<Props, 'visible
               value={detail}
               onChangeText={setDetail}
               placeholder="Es. 12 mg/ml"
-              placeholderTextColor={Colors.textMuted}
+              placeholderTextColor={t.colors.textMuted}
               style={[styles.input, noWebOutline]}
               maxLength={60}
               accessibilityLabel="Descrizione del prodotto"
@@ -230,7 +234,7 @@ function EditorBody({ product, onSave, onDelete, onClose }: Omit<Props, 'visible
                 value={mgText}
                 onChangeText={setMgText}
                 placeholder="0.05"
-                placeholderTextColor={Colors.textMuted}
+                placeholderTextColor={t.colors.textMuted}
                 keyboardType="decimal-pad"
                 style={[styles.input, styles.mgInput, noWebOutline]}
                 accessibilityLabel="Milligrammi di nicotina per tiro"
@@ -290,6 +294,8 @@ function AiResultCard({
   outcome: AiLookupOutcome;
   onApply: (o: AiLookupOutcome) => void;
 }) {
+  const styles = useStyles(makeStyles);
+  const t = useTheme();
   const { result, mgPerPuff, webSearch } = outcome;
   const specs = specsFromResult(result);
 
@@ -339,7 +345,7 @@ function AiResultCard({
           onPress={() => Linking.openURL(s.url)}
           accessibilityRole="link"
           style={styles.source}>
-          <Ionicons name="open-outline" size={13} color={Colors.primary} />
+          <Ionicons name="open-outline" size={13} color={t.colors.primary} />
           <Text style={styles.sourceText} numberOfLines={1}>
             {s.title}
           </Text>
@@ -357,232 +363,223 @@ function AiResultCard({
   );
 }
 
-const styles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(27, 35, 64, 0.45)',
-    justifyContent: 'center',
-    padding: Spacing.md,
-  },
-  card: {
-    backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    width: '100%',
-    maxWidth: 440,
-    maxHeight: '92%',
-    alignSelf: 'center',
-  },
-  content: {
-    padding: Spacing.lg,
-    gap: Spacing.md,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: Colors.text,
-  },
-  aiBox: {
-    backgroundColor: Colors.primarySoft,
-    borderRadius: Radius.md,
-    padding: Spacing.md,
-    gap: Spacing.sm,
-  },
-  aiHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  aiTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: Colors.primaryDark,
-  },
-  aiBody: {
-    fontSize: 12,
-    lineHeight: 17,
-    color: Colors.textMuted,
-  },
-  aiRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-  },
-  aiButton: {
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md,
-    justifyContent: 'center',
-    minWidth: 72,
-    alignItems: 'center',
-  },
-  aiButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  aiResult: {
-    backgroundColor: Colors.card,
-    borderRadius: Radius.md,
-    padding: Spacing.md,
-    gap: 6,
-  },
-  aiResultTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  aiResultName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: Colors.text,
-  },
-  aiMg: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: Colors.text,
-  },
-  aiMeta: {
-    fontSize: 11,
-    color: Colors.textMuted,
-    fontStyle: 'italic',
-  },
-  source: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  sourceText: {
-    flex: 1,
-    fontSize: 12,
-    color: Colors.primary,
-  },
-  applyButton: {
-    marginTop: 4,
-    borderRadius: Radius.sm,
-    borderWidth: 1.5,
-    borderColor: Colors.primary,
-    paddingVertical: 10,
-    alignItems: 'center',
-  },
-  applyText: {
-    color: Colors.primary,
-    fontWeight: '700',
-  },
-  field: {
-    gap: 6,
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  input: {
-    backgroundColor: Colors.background,
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 12,
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.text,
-    minWidth: 0,
-  },
-  chips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: Radius.pill,
-    backgroundColor: Colors.background,
-  },
-  chipActive: {
-    backgroundColor: Colors.primary,
-  },
-  chipText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: Colors.text,
-  },
-  chipTextActive: {
-    color: '#FFFFFF',
-  },
-  mgRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-  },
-  mgInput: {
-    flex: 1,
-    fontSize: 20,
-    fontWeight: '800',
-  },
-  unit: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.textMuted,
-  },
-  help: {
-    fontSize: 12,
-    lineHeight: 17,
-    color: Colors.textMuted,
-  },
-  error: {
-    color: Colors.danger,
-  },
-  primary: {
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.md,
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  primaryText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  disabled: {
-    opacity: 0.4,
-  },
-  pressed: {
-    opacity: 0.75,
-  },
-  confirmRow: {
-    flexDirection: 'row',
-    gap: Spacing.sm,
-  },
-  secondary: {
-    backgroundColor: Colors.background,
-    borderRadius: Radius.md,
-    paddingVertical: 14,
-    paddingHorizontal: Spacing.md,
-    alignItems: 'center',
-  },
-  secondaryText: {
-    color: Colors.text,
-    fontWeight: '700',
-  },
-  danger: {
-    backgroundColor: Colors.dangerSoft,
-    borderRadius: Radius.md,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  flex: {
-    flex: 1,
-    minWidth: 0,
-  },
-  dangerText: {
-    color: Colors.danger,
-    fontWeight: '700',
-  },
-  cancel: {
-    alignSelf: 'center',
-    paddingVertical: 4,
-  },
-  cancelText: {
-    color: Colors.textMuted,
-    fontWeight: '600',
-  },
-});
+const makeStyles = (t: Theme) =>
+  StyleSheet.create({
+    backdrop: {
+      flex: 1,
+      backgroundColor: t.colors.backdrop,
+      justifyContent: 'center',
+      padding: Spacing.md,
+    },
+    card: {
+      backgroundColor: t.colors.card,
+      borderRadius: t.radius.lg,
+      width: '100%',
+      maxWidth: 440,
+      maxHeight: '92%',
+      alignSelf: 'center',
+    },
+    content: {
+      padding: Spacing.lg,
+      gap: Spacing.md,
+    },
+    title: {
+      ...t.text(20, '800'),
+      color: t.colors.text,
+    },
+    aiBox: {
+      backgroundColor: t.colors.primarySoft,
+      borderRadius: t.radius.md,
+      padding: Spacing.md,
+      gap: Spacing.sm,
+    },
+    aiHeader: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    aiTitle: {
+      ...t.text(14, '700'),
+      color: t.colors.primaryDark,
+    },
+    aiBody: {
+      ...t.text(12, '400'),
+      lineHeight: 17,
+      color: t.colors.textMuted,
+    },
+    aiRow: {
+      flexDirection: 'row',
+      gap: Spacing.sm,
+    },
+    aiButton: {
+      backgroundColor: t.colors.primary,
+      borderRadius: t.radius.md,
+      paddingHorizontal: Spacing.md,
+      justifyContent: 'center',
+      minWidth: 72,
+      alignItems: 'center',
+    },
+    aiButtonText: {
+      color: t.colors.onPrimary,
+      ...t.weight('700'),
+    },
+    aiResult: {
+      backgroundColor: t.colors.card,
+      borderRadius: t.radius.md,
+      padding: Spacing.md,
+      gap: 6,
+    },
+    aiResultTop: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.sm,
+    },
+    aiResultName: {
+      ...t.text(15, '700'),
+      color: t.colors.text,
+    },
+    aiMg: {
+      ...t.text(20, '800'),
+      color: t.colors.text,
+    },
+    aiMeta: {
+      ...t.text(11, '400'),
+      color: t.colors.textMuted,
+      fontStyle: 'italic',
+    },
+    source: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    sourceText: {
+      flex: 1,
+      ...t.text(12, '400'),
+      color: t.colors.primary,
+    },
+    applyButton: {
+      marginTop: 4,
+      borderRadius: t.radius.sm,
+      borderWidth: 1.5,
+      borderColor: t.colors.primary,
+      paddingVertical: 10,
+      alignItems: 'center',
+    },
+    applyText: {
+      color: t.colors.primary,
+      ...t.weight('700'),
+    },
+    field: {
+      gap: 6,
+    },
+    label: {
+      ...t.text(12, '700'),
+      color: t.colors.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    input: {
+      backgroundColor: t.colors.background,
+      borderRadius: t.radius.md,
+      paddingHorizontal: Spacing.md,
+      paddingVertical: 12,
+      ...t.text(16, '600'),
+      color: t.colors.text,
+      minWidth: 0,
+    },
+    chips: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 6,
+    },
+    chip: {
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: t.radius.pill,
+      backgroundColor: t.colors.background,
+    },
+    chipActive: {
+      backgroundColor: t.colors.primary,
+    },
+    chipText: {
+      ...t.text(13, '600'),
+      color: t.colors.text,
+    },
+    chipTextActive: {
+      color: t.colors.onPrimary,
+    },
+    mgRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.sm,
+    },
+    mgInput: {
+      flex: 1,
+      ...t.text(20, '800'),
+    },
+    unit: {
+      ...t.text(14, '600'),
+      color: t.colors.textMuted,
+    },
+    help: {
+      ...t.text(12, '400'),
+      lineHeight: 17,
+      color: t.colors.textMuted,
+    },
+    error: {
+      color: t.colors.danger,
+    },
+    primary: {
+      backgroundColor: t.colors.primary,
+      borderRadius: t.radius.md,
+      paddingVertical: 16,
+      alignItems: 'center',
+    },
+    primaryText: {
+      color: t.colors.onPrimary,
+      ...t.text(16, '700'),
+    },
+    disabled: {
+      opacity: 0.4,
+    },
+    pressed: {
+      opacity: 0.75,
+    },
+    confirmRow: {
+      flexDirection: 'row',
+      gap: Spacing.sm,
+    },
+    secondary: {
+      backgroundColor: t.colors.background,
+      borderRadius: t.radius.md,
+      paddingVertical: 14,
+      paddingHorizontal: Spacing.md,
+      alignItems: 'center',
+    },
+    secondaryText: {
+      color: t.colors.text,
+      ...t.weight('700'),
+    },
+    danger: {
+      backgroundColor: t.colors.dangerSoft,
+      borderRadius: t.radius.md,
+      paddingVertical: 14,
+      alignItems: 'center',
+    },
+    flex: {
+      flex: 1,
+      minWidth: 0,
+    },
+    dangerText: {
+      color: t.colors.danger,
+      ...t.weight('700'),
+    },
+    cancel: {
+      alignSelf: 'center',
+      paddingVertical: 4,
+    },
+    cancelText: {
+      color: t.colors.textMuted,
+      ...t.weight('600'),
+    },
+  });

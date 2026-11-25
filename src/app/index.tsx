@@ -15,13 +15,22 @@ import { DailyLimitEditor } from '@/components/daily-limit-editor';
 import { NicotineChart } from '@/components/nicotine-chart';
 import { ProductPicker } from '@/components/product-picker';
 import { PuffRing } from '@/components/puff-ring';
-import { Colors, Radius, Shadow, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { formatMg, puffsToday } from '@/lib/nicotine';
 import { useNicotine } from '@/store/nicotine-store';
+import { useStyles, useTheme } from '@/theme/theme-provider';
+import type { Theme } from '@/theme/themes';
 
 const MAX_CONTENT_WIDTH = 520;
 
+function formatToday(now: number): string {
+  const text = new Date(now).toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 export default function HomeScreen() {
+  const styles = useStyles(makeStyles);
+  const t = useTheme();
   const {
     loaded,
     now,
@@ -52,9 +61,12 @@ export default function HomeScreen() {
 
           <View style={styles.ringCard}>
             <View style={styles.ringHeader}>
-              <Text style={styles.ringTitle}>Oggi</Text>
+              <View>
+                <Text style={styles.ringTitle}>Oggi</Text>
+                <Text style={styles.ringDate}>{formatToday(now)}</Text>
+              </View>
               <View style={[styles.limitPill, overLimit && styles.limitPillOver]}>
-                {overLimit && <Ionicons name="warning" size={13} color={Colors.danger} />}
+                {overLimit && <Ionicons name="warning" size={13} color={t.colors.danger} />}
                 <Text style={[styles.limitText, overLimit && styles.limitTextOver]}>
                   {overLimit
                     ? 'Limite giornaliero superato'
@@ -71,18 +83,20 @@ export default function HomeScreen() {
               onPress={addPuff}
             />
 
-            <Pressable
-              onPress={undoLastPuff}
-              disabled={today.length === 0}
-              hitSlop={8}
-              style={({ pressed }) => [
-                styles.undo,
-                today.length === 0 && styles.undoDisabled,
-                pressed && { opacity: 0.6 },
-              ]}>
-              <Ionicons name="arrow-undo" size={14} color={Colors.textMuted} />
-              <Text style={styles.undoText}>Annulla ultimo tiro</Text>
-            </Pressable>
+            {today.length === 0 ? (
+              <View style={styles.hint}>
+                <Ionicons name="hand-left-outline" size={15} color={t.colors.primary} />
+                <Text style={styles.hintText}>Tocca il cerchio ogni volta che fai un tiro</Text>
+              </View>
+            ) : (
+              <Pressable
+                onPress={undoLastPuff}
+                hitSlop={8}
+                style={({ pressed }) => [styles.undo, pressed && { opacity: 0.6 }]}>
+                <Ionicons name="arrow-undo" size={14} color={t.colors.textMuted} />
+                <Text style={styles.undoText}>Annulla ultimo tiro</Text>
+              </Pressable>
+            )}
           </View>
 
           <View style={styles.card}>
@@ -107,104 +121,116 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  scroll: {
-    paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.md,
-    paddingBottom: Spacing.xl,
-    alignItems: 'center',
-  },
-  content: {
-    width: '100%',
-    maxWidth: MAX_CONTENT_WIDTH,
-    gap: Spacing.md,
-  },
-  ringCard: {
-    backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    paddingVertical: Spacing.md,
-    paddingHorizontal: Spacing.md,
-    alignItems: 'center',
-    gap: Spacing.md,
-    ...Shadow,
-  },
-  ringHeader: {
-    alignSelf: 'stretch',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  ringTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: Colors.text,
-  },
-  limitPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: Radius.pill,
-    backgroundColor: Colors.primarySoft,
-  },
-  limitPillOver: {
-    backgroundColor: Colors.dangerSoft,
-  },
-  limitText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: Colors.primaryDark,
-  },
-  limitTextOver: {
-    color: Colors.danger,
-  },
-  undo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  undoDisabled: {
-    opacity: 0.35,
-  },
-  undoText: {
-    fontSize: 13,
-    color: Colors.textMuted,
-    fontWeight: '600',
-  },
-  card: {
-    backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    padding: Spacing.md,
-    ...Shadow,
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(27, 35, 64, 0.45)',
-    justifyContent: 'center',
-    padding: Spacing.md,
-  },
-  modalCard: {
-    backgroundColor: Colors.card,
-    borderRadius: Radius.lg,
-    padding: Spacing.lg,
-    gap: Spacing.md,
-    width: '100%',
-    maxWidth: 440,
-    alignSelf: 'center',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: Colors.text,
-  },
-  modalBody: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: Colors.textMuted,
-  },
-});
+const makeStyles = (t: Theme) =>
+  StyleSheet.create({
+    safe: {
+      flex: 1,
+      backgroundColor: t.colors.background,
+    },
+    scroll: {
+      paddingHorizontal: Spacing.md,
+      paddingTop: Spacing.md,
+      paddingBottom: Spacing.xl,
+      alignItems: 'center',
+    },
+    content: {
+      width: '100%',
+      maxWidth: MAX_CONTENT_WIDTH,
+      gap: Spacing.md,
+    },
+    ringCard: {
+      backgroundColor: t.colors.card,
+      borderRadius: t.radius.lg,
+      paddingVertical: Spacing.md,
+      paddingHorizontal: Spacing.md,
+      alignItems: 'center',
+      gap: Spacing.md,
+      ...t.elevation,
+    },
+    ringHeader: {
+      alignSelf: 'stretch',
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    ringTitle: {
+      ...t.text(17, '700'),
+      color: t.colors.text,
+    },
+    limitPill: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: t.radius.pill,
+      backgroundColor: t.colors.primarySoft,
+    },
+    limitPillOver: {
+      backgroundColor: t.colors.dangerSoft,
+    },
+    limitText: {
+      ...t.text(12, '700'),
+      color: t.colors.primaryDark,
+    },
+    limitTextOver: {
+      color: t.colors.danger,
+    },
+    undo: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+    },
+    ringDate: {
+      ...t.text(12, '500'),
+      color: t.colors.textMuted,
+      marginTop: 1,
+    },
+    hint: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      backgroundColor: t.colors.primarySoft,
+      borderRadius: t.radius.pill,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+    },
+    hintText: {
+      ...t.text(13, '600'),
+      color: t.colors.primaryDark,
+    },
+    undoText: {
+      ...t.text(13, '600'),
+      color: t.colors.textMuted,
+    },
+    card: {
+      backgroundColor: t.colors.card,
+      borderRadius: t.radius.lg,
+      padding: Spacing.md,
+      ...t.elevation,
+    },
+    modalBackdrop: {
+      flex: 1,
+      backgroundColor: t.colors.backdrop,
+      justifyContent: 'center',
+      padding: Spacing.md,
+    },
+    modalCard: {
+      backgroundColor: t.colors.card,
+      borderRadius: t.radius.lg,
+      padding: Spacing.lg,
+      gap: Spacing.md,
+      width: '100%',
+      maxWidth: 440,
+      alignSelf: 'center',
+    },
+    modalTitle: {
+      ...t.text(20, '800'),
+      color: t.colors.text,
+    },
+    modalBody: {
+      ...t.text(14, '400'),
+      lineHeight: 20,
+      color: t.colors.textMuted,
+    },
+  });

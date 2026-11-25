@@ -12,8 +12,10 @@ import {
 } from 'react-native';
 
 import { ScoreBadge } from '@/components/score-badge';
-import { Colors, Radius, Shadow, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { formatMgPerPuff, scoreFor, type Product } from '@/data/products';
+import { useStyles, useTheme } from '@/theme/theme-provider';
+import type { Theme } from '@/theme/themes';
 
 type Props = {
   products: Product[];
@@ -29,6 +31,8 @@ type Anchor = { x: number; y: number; width: number; height: number };
  * (anche su Android, dove zIndex tra fratelli è inaffidabile).
  */
 export function ProductPicker({ products, selected, onSelect }: Props) {
+  const styles = useStyles(makeStyles);
+  const t = useTheme();
   const triggerRef = useRef<HostInstance>(null);
   const [anchor, setAnchor] = useState<Anchor | null>(null);
   const { height: windowHeight } = useWindowDimensions();
@@ -57,7 +61,7 @@ export function ProductPicker({ products, selected, onSelect }: Props) {
         <Ionicons
           name={anchor ? 'chevron-up' : 'chevron-down'}
           size={20}
-          color={Colors.primary}
+          color={t.colors.primary}
         />
       </Pressable>
 
@@ -109,77 +113,75 @@ export function ProductPicker({ products, selected, onSelect }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  trigger: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    height: 60,
-    paddingHorizontal: Spacing.md,
-    backgroundColor: Colors.card,
-    borderRadius: Radius.md,
-    ...Shadow,
-  },
-  triggerText: {
-    flex: 1,
-  },
-  caption: {
-    fontSize: 11,
-    color: Colors.textMuted,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  triggerLabel: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: Colors.text,
-  },
-  pressed: {
-    opacity: 0.7,
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(27, 35, 64, 0.15)',
-  },
-  panel: {
-    position: 'absolute',
-    backgroundColor: Colors.card,
-    borderRadius: Radius.md,
-    paddingVertical: Spacing.xs,
-    overflow: 'hidden',
-    ...Shadow,
-    shadowOpacity: 0.16,
-    elevation: 12,
-  },
-  option: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.md,
-    paddingVertical: 12,
-    paddingHorizontal: Spacing.md,
-  },
-  optionDivider: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: Colors.border,
-  },
-  optionSelected: {
-    backgroundColor: Colors.primarySoft,
-  },
-  optionText: {
-    flex: 1,
-  },
-  optionName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: Colors.text,
-  },
-  optionNameSelected: {
-    color: Colors.primaryDark,
-  },
-  optionDetail: {
-    fontSize: 12,
-    color: Colors.textMuted,
-    marginTop: 2,
-  },
-});
+const makeStyles = (t: Theme) =>
+  StyleSheet.create({
+    trigger: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      height: 60,
+      paddingHorizontal: Spacing.md,
+      backgroundColor: t.colors.card,
+      borderRadius: t.radius.md,
+      ...t.elevation,
+    },
+    triggerText: {
+      flex: 1,
+    },
+    caption: {
+      ...t.text(11, '600'),
+      color: t.colors.textMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    triggerLabel: {
+      ...t.text(16, '700'),
+      color: t.colors.text,
+    },
+    pressed: {
+      opacity: 0.7,
+    },
+    backdrop: {
+      ...StyleSheet.absoluteFill,
+      backgroundColor: t.dark ? 'rgba(0, 0, 0, 0.4)' : 'rgba(27, 35, 64, 0.15)',
+    },
+    panel: {
+      position: 'absolute',
+      backgroundColor: t.colors.card,
+      borderRadius: t.radius.md,
+      paddingVertical: Spacing.xs,
+      overflow: 'hidden',
+      ...t.elevation,
+      shadowOpacity: 0.16,
+      elevation: 12,
+    },
+    option: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.md,
+      paddingVertical: 12,
+      paddingHorizontal: Spacing.md,
+    },
+    optionDivider: {
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: t.colors.border,
+    },
+    optionSelected: {
+      backgroundColor: t.colors.primarySoft,
+    },
+    optionText: {
+      flex: 1,
+    },
+    optionName: {
+      ...t.text(15, '600'),
+      color: t.colors.text,
+    },
+    optionNameSelected: {
+      color: t.colors.primaryDark,
+    },
+    optionDetail: {
+      ...t.text(12, '400'),
+      color: t.colors.textMuted,
+      marginTop: 2,
+    },
+  });

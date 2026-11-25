@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
-import { Platform, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import Svg, { Defs, Line, LinearGradient, Path, Stop, Text as SvgText } from 'react-native-svg';
 
-import { Colors } from '@/constants/theme';
 import { bodyNicotineSeries, type Puff } from '@/lib/nicotine';
+import { useStyles, useTheme } from '@/theme/theme-provider';
+import type { Theme } from '@/theme/themes';
 
 type Props = {
   puffs: Puff[];
@@ -15,8 +16,6 @@ const PAD_LEFT = 34;
 const PAD_RIGHT = 8;
 const PAD_TOP = 10;
 const PAD_BOTTOM = 24;
-// Su web l'SVG userebbe il font serif di default.
-const AXIS_FONT = Platform.OS === 'web' ? 'system-ui, -apple-system, Roboto, sans-serif' : undefined;
 
 function niceMax(value: number): number {
   if (value <= 0) return 1;
@@ -39,6 +38,8 @@ function formatHour(t: number): string {
 
 /** Nicotina stimata nel corpo nelle ultime 24 ore. */
 export function NicotineChart({ puffs, now }: Props) {
+  const styles = useStyles(makeStyles);
+  const t = useTheme();
   const [width, setWidth] = useState(0);
   const onLayout = (e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width);
 
@@ -85,8 +86,8 @@ export function NicotineChart({ puffs, now }: Props) {
           <Svg width={width} height={HEIGHT}>
             <Defs>
               <LinearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor={Colors.primary} stopOpacity={0.28} />
-                <Stop offset="1" stopColor={Colors.primary} stopOpacity={0.02} />
+                <Stop offset="0" stopColor={t.colors.primary} stopOpacity={0.28} />
+                <Stop offset="1" stopColor={t.colors.primary} stopOpacity={0.02} />
               </LinearGradient>
             </Defs>
 
@@ -97,7 +98,7 @@ export function NicotineChart({ puffs, now }: Props) {
                 x2={width - PAD_RIGHT}
                 y1={chart.y(v)}
                 y2={chart.y(v)}
-                stroke={Colors.border}
+                stroke={t.colors.border}
                 strokeWidth={1}
               />
             ))}
@@ -107,26 +108,26 @@ export function NicotineChart({ puffs, now }: Props) {
                 x={PAD_LEFT - 6}
                 y={chart.y(v) + 4}
                 fontSize={10}
-                fontFamily={AXIS_FONT}
-                fill={Colors.textMuted}
+                fontFamily={t.svgFont}
+                fill={t.colors.textMuted}
                 textAnchor="end">
                 {formatTick(v)}
               </SvgText>
             ))}
 
             <Path d={chart.area} fill="url(#fill)" />
-            <Path d={chart.line} stroke={Colors.primary} strokeWidth={2.5} fill="none" />
+            <Path d={chart.line} stroke={t.colors.primary} strokeWidth={2.5} fill="none" />
 
-            {chart.xTicks.map((t, i) => (
+            {chart.xTicks.map((tick, i) => (
               <SvgText
-                key={`x${t}`}
-                x={chart.x(t)}
+                key={`x${tick}`}
+                x={chart.x(tick)}
                 y={HEIGHT - 6}
                 fontSize={10}
-                fontFamily={AXIS_FONT}
-                fill={Colors.textMuted}
+                fontFamily={t.svgFont}
+                fill={t.colors.textMuted}
                 textAnchor={i === 0 ? 'start' : i === 4 ? 'end' : 'middle'}>
-                {i === 4 ? 'Ora' : formatHour(t)}
+                {i === 4 ? 'Ora' : formatHour(tick)}
               </SvgText>
             ))}
           </Svg>
@@ -136,31 +137,29 @@ export function NicotineChart({ puffs, now }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-  },
-  title: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: Colors.text,
-  },
-  current: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: Colors.primary,
-  },
-  currentUnit: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: Colors.textMuted,
-  },
-  subtitle: {
-    fontSize: 12,
-    color: Colors.textMuted,
-    marginTop: 2,
-    marginBottom: 12,
-  },
-});
+const makeStyles = (t: Theme) =>
+  StyleSheet.create({
+    header: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      justifyContent: 'space-between',
+    },
+    title: {
+      ...t.text(17, '700'),
+      color: t.colors.text,
+    },
+    current: {
+      ...t.text(17, '800'),
+      color: t.colors.primary,
+    },
+    currentUnit: {
+      ...t.text(12, '600'),
+      color: t.colors.textMuted,
+    },
+    subtitle: {
+      ...t.text(12, '400'),
+      color: t.colors.textMuted,
+      marginTop: 2,
+      marginBottom: 12,
+    },
+  });

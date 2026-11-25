@@ -2,8 +2,9 @@ import { useRef } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
-import { Colors, Shadow } from '@/constants/theme';
 import { formatMg } from '@/lib/nicotine';
+import { useStyles, useTheme } from '@/theme/theme-provider';
+import type { Theme } from '@/theme/themes';
 
 type Props = {
   size: number;
@@ -21,6 +22,8 @@ const STROKE = 20;
  * man mano (stesso spessore, colore pieno), fino a diventare tutto rosso a 2× il limite.
  */
 export function PuffRing({ size, puffs, mgToday, limitMg, onPress }: Props) {
+  const styles = useStyles(makeStyles);
+  const t = useTheme();
   const scale = useRef(new Animated.Value(1)).current;
 
   const radius = (size - STROKE) / 2;
@@ -66,7 +69,7 @@ export function PuffRing({ size, puffs, mgToday, limitMg, onPress }: Props) {
           cx={center}
           cy={center}
           r={radius}
-          stroke={Colors.ringTrack}
+          stroke={t.colors.ringTrack}
           strokeWidth={STROKE}
           fill="none"
         />
@@ -75,7 +78,7 @@ export function PuffRing({ size, puffs, mgToday, limitMg, onPress }: Props) {
             cx={center}
             cy={center}
             r={radius}
-            stroke={Colors.primary}
+            stroke={t.colors.primary}
             strokeWidth={STROKE}
             strokeLinecap={blue < 1 ? 'round' : 'butt'}
             fill="none"
@@ -92,14 +95,14 @@ export function PuffRing({ size, puffs, mgToday, limitMg, onPress }: Props) {
               cx={center}
               cy={center}
               r={radius}
-              stroke={Colors.primary}
+              stroke={t.colors.primary}
               strokeWidth={STROKE}
               strokeLinecap="butt"
               fill="none"
               strokeDasharray={`${blueRemaining} ${circumference * 2}`}
               transform={`rotate(${red * 360 - 90} ${center} ${center})`}
             />
-            <Path d={redPath} fill={Colors.danger} />
+            <Path d={redPath} fill={t.colors.danger} />
           </>
         )}
         {red >= 1 && (
@@ -107,7 +110,7 @@ export function PuffRing({ size, puffs, mgToday, limitMg, onPress }: Props) {
             cx={center}
             cy={center}
             r={radius}
-            stroke={Colors.danger}
+            stroke={t.colors.danger}
             strokeWidth={STROKE}
             fill="none"
           />
@@ -142,49 +145,46 @@ export function PuffRing({ size, puffs, mgToday, limitMg, onPress }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  centerWrap: {
-    ...StyleSheet.absoluteFill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  button: {
-    backgroundColor: Colors.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 6,
-    borderColor: Colors.primarySoft,
-    ...Shadow,
-  },
-  plus: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.primary,
-  },
-  puffs: {
-    fontSize: 52,
-    lineHeight: 58,
-    fontWeight: '800',
-    color: Colors.text,
-  },
-  label: {
-    fontSize: 13,
-    color: Colors.textMuted,
-  },
-  divider: {
-    width: 40,
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: Colors.border,
-    marginVertical: 8,
-  },
-  mg: {
-    fontSize: 30,
-    fontWeight: '800',
-    color: Colors.text,
-  },
-  mgUnit: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-});
+const makeStyles = (t: Theme) =>
+  StyleSheet.create({
+    centerWrap: {
+      ...StyleSheet.absoluteFill,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    button: {
+      backgroundColor: t.colors.card,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 6,
+      borderColor: t.colors.primarySoft,
+      ...t.elevation,
+    },
+    plus: {
+      ...t.text(18, '700'),
+      color: t.colors.primary,
+    },
+    puffs: {
+      ...t.text(52, '800'),
+      lineHeight: 58,
+      color: t.colors.text,
+    },
+    label: {
+      ...t.text(13, '400'),
+      color: t.colors.textMuted,
+    },
+    divider: {
+      width: 40,
+      height: 2,
+      borderRadius: 1,
+      backgroundColor: t.colors.border,
+      marginVertical: 8,
+    },
+    mg: {
+      ...t.text(30, '800'),
+      color: t.colors.text,
+    },
+    mgUnit: {
+      ...t.text(16, '700'),
+    },
+  });

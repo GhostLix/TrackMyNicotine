@@ -7,8 +7,9 @@ import {
   View,
   type GestureResponderHandlers,
 } from 'react-native';
+import { useStyles, useTheme } from '@/theme/theme-provider';
+import type { Theme } from '@/theme/themes';
 
-import { Colors } from '@/constants/theme';
 
 type RenderInfo = {
   index: number;
@@ -43,6 +44,8 @@ export function DraggableList<T>({
   onReorder,
   onDragActiveChange,
 }: Props<T>) {
+  const styles = useStyles(makeStyles);
+  const t = useTheme();
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const dy = useRef(new Animated.Value(0)).current;
@@ -136,15 +139,16 @@ export function DraggableList<T>({
   );
 }
 
-const styles = StyleSheet.create({
-  dragging: {
-    zIndex: 10,
-    elevation: 10,
-    backgroundColor: Colors.card,
-    shadowColor: '#2A3A6B',
-    shadowOpacity: 0.22,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 6 },
-    borderRadius: 14,
-  },
-});
+const makeStyles = (t: Theme) =>
+  StyleSheet.create({
+    dragging: {
+      zIndex: 10,
+      elevation: 10,
+      backgroundColor: t.colors.card,
+      shadowColor: t.colors.shadow,
+      shadowOpacity: 0.22,
+      shadowRadius: 14,
+      shadowOffset: { width: 0, height: 6 },
+      borderRadius: 14,
+    },
+  });
