@@ -13,17 +13,17 @@ type Props = {
   onPress: () => void;
 };
 
-const STROKE = 18;
-const OVER_STROKE = 24;
+const STROKE = 20;
 
 /**
- * Anello di progresso: si riempie di blu fino al limite giornaliero,
- * poi un secondo giro rosso indica quanto si è oltre il limite.
+ * Anello di progresso: si riempie di blu fino al limite giornaliero.
+ * Superato il limite parte un secondo giro, rosso, che sostituisce il blu
+ * man mano (stesso spessore, colore pieno), fino a diventare tutto rosso a 2× il limite.
  */
 export function PuffRing({ size, puffs, mgToday, limitMg, onPress }: Props) {
   const scale = useRef(new Animated.Value(1)).current;
 
-  const radius = (size - OVER_STROKE) / 2;
+  const radius = (size - STROKE) / 2;
   const circumference = 2 * Math.PI * radius;
   const center = size / 2;
 
@@ -31,7 +31,14 @@ export function PuffRing({ size, puffs, mgToday, limitMg, onPress }: Props) {
   const blue = Math.min(ratio, 1);
   const red = Math.min(Math.max(ratio - 1, 0), 1);
 
-  const innerSize = size - OVER_STROKE * 2 - 20;
+  const innerSize = size - STROKE * 2 - 28;
+
+  // Punto finale dell'arco rosso (angolo 0 = ore 12, senso orario) per disegnarne la testa arrotondata.
+  const redAngle = red * 2 * Math.PI;
+  const redHead = {
+    x: center + radius * Math.sin(redAngle),
+    y: center - radius * Math.cos(redAngle),
+  };
 
   const pressIn = () =>
     Animated.spring(scale, { toValue: 0.94, useNativeDriver: true, speed: 40 }).start();
@@ -65,19 +72,25 @@ export function PuffRing({ size, puffs, mgToday, limitMg, onPress }: Props) {
           />
         )}
         {red > 0 && (
-          <Circle
-            cx={center}
-            cy={center}
-            r={radius}
-            stroke={Colors.danger}
-            strokeOpacity={0.9}
-            strokeWidth={OVER_STROKE}
-            strokeLinecap="round"
-            fill="none"
-            strokeDasharray={`${circumference} ${circumference}`}
-            strokeDashoffset={circumference * (1 - red)}
-            transform={`rotate(-90 ${center} ${center})`}
-          />
+          <>
+            {/* Inizio netto (butt) esattamente alle ore 12, così il rosso parte dove finisce il blu. */}
+            <Circle
+              cx={center}
+              cy={center}
+              r={radius}
+              stroke={Colors.danger}
+              strokeWidth={STROKE}
+              strokeLinecap="butt"
+              fill="none"
+              strokeDasharray={red < 1 ? `${circumference} ${circumference}` : undefined}
+              strokeDashoffset={red < 1 ? circumference * (1 - red) : undefined}
+              transform={`rotate(-90 ${center} ${center})`}
+            />
+            {/* Testa arrotondata come quella del blu. */}
+            {red < 1 && (
+              <Circle cx={redHead.x} cy={redHead.y} r={STROKE / 2} fill={Colors.danger} />
+            )}
+          </>
         )}
       </Svg>
 

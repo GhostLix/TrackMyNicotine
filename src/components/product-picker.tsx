@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRef, useState, type ReactNode } from 'react';
+import { useRef, useState } from 'react';
 import { Modal, Pressable, StyleSheet, Text, View, type HostInstance } from 'react-native';
 
 import { ScoreBadge } from '@/components/score-badge';
@@ -9,8 +9,6 @@ import { PRODUCTS, type Product } from '@/data/products';
 type Props = {
   selected: Product;
   onSelect: (id: string) => void;
-  /** Elemento a sinistra del pulsante (es. il badge del punteggio). Il pannello aperto copre anche questo. */
-  leading?: ReactNode;
 };
 
 type Anchor = { x: number; y: number; width: number; height: number };
@@ -20,7 +18,7 @@ type Anchor = { x: number; y: number; width: number; height: number };
  * sotto il pulsante, così resta sopra a tutto il resto della schermata
  * (anche su Android, dove zIndex tra fratelli è inaffidabile).
  */
-export function ProductPicker({ selected, onSelect, leading }: Props) {
+export function ProductPicker({ selected, onSelect }: Props) {
   const triggerRef = useRef<HostInstance>(null);
   const [anchor, setAnchor] = useState<Anchor | null>(null);
 
@@ -32,8 +30,7 @@ export function ProductPicker({ selected, onSelect, leading }: Props) {
   const close = () => setAnchor(null);
 
   return (
-    <View ref={triggerRef} style={styles.row}>
-      {leading}
+    <View ref={triggerRef}>
       <Pressable
         onPress={open}
         accessibilityRole="button"
@@ -50,6 +47,7 @@ export function ProductPicker({ selected, onSelect, leading }: Props) {
           size={20}
           color={Colors.primary}
         />
+        <ScoreBadge score={selected.score} />
       </Pressable>
 
       <Modal visible={anchor !== null} transparent animationType="fade" onRequestClose={close}>
@@ -97,17 +95,11 @@ export function ProductPicker({ selected, onSelect, leading }: Props) {
 }
 
 const styles = StyleSheet.create({
-  row: {
+  trigger: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-  },
-  trigger: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.sm,
-    height: 52,
+    height: 60,
     paddingHorizontal: Spacing.md,
     backgroundColor: Colors.card,
     borderRadius: Radius.md,

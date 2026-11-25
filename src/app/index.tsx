@@ -15,7 +15,6 @@ import { DailyLimitEditor } from '@/components/daily-limit-editor';
 import { NicotineChart } from '@/components/nicotine-chart';
 import { ProductPicker } from '@/components/product-picker';
 import { PuffRing } from '@/components/puff-ring';
-import { ScoreBadge } from '@/components/score-badge';
 import { Colors, Radius, Shadow, Spacing } from '@/constants/theme';
 import { formatMg, puffsToday } from '@/lib/nicotine';
 import { useNicotine } from '@/store/nicotine-store';
@@ -48,11 +47,7 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.content}>
-          <ProductPicker
-            selected={selectedProduct}
-            onSelect={selectProduct}
-            leading={<ScoreBadge score={selectedProduct.score} size="lg" />}
-          />
+          <ProductPicker selected={selectedProduct} onSelect={selectProduct} />
 
           <View style={styles.ringCard}>
             <View style={styles.ringHeader}>
