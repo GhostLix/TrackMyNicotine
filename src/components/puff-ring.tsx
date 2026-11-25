@@ -33,17 +33,26 @@ export function PuffRing({ size, puffs, mgToday, limitMg, onPress }: Props) {
 
   const innerSize = size - STROKE * 2 - 28;
 
-  // Testa arrotondata dell'arco rosso: un SEMIcerchio rivolto in avanti (senso orario),
-  // così anche con pochissimo sforamento non si vede un cerchio intero che sporge indietro sul blu.
+  // Arco rosso disegnato come UNA sola forma piena (corpo dell'arco + punta a semicerchio):
+  // niente giunture tra forme diverse dove l'antialiasing farebbe trasparire il blu.
   const redAngle = red * 2 * Math.PI;
-  const headR = STROKE / 2;
-  const hx = center + radius * Math.sin(redAngle);
-  const hy = center - radius * Math.cos(redAngle);
-  const rx = Math.sin(redAngle); // direzione radiale verso l'esterno
-  const ry = -Math.cos(redAngle);
-  const redHeadPath =
-    `M ${hx - headR * rx} ${hy - headR * ry} ` +
-    `A ${headR} ${headR} 0 0 0 ${hx + headR * rx} ${hy + headR * ry} Z`;
+  const half = STROKE / 2;
+  const outerR = radius + half;
+  const innerR = radius - half;
+  const at = (r: number, angle: number) =>
+    `${(center + r * Math.sin(angle)).toFixed(3)} ${(center - r * Math.cos(angle)).toFixed(3)}`;
+  const largeArc = redAngle > Math.PI ? 1 : 0;
+  const redPath =
+    `M ${at(outerR, 0)} ` +
+    `A ${outerR} ${outerR} 0 ${largeArc} 1 ${at(outerR, redAngle)} ` +
+    // punta: semicerchio rivolto in avanti, dal bordo esterno a quello interno
+    `A ${half} ${half} 0 0 1 ${at(innerR, redAngle)} ` +
+    `A ${innerR} ${innerR} 0 ${largeArc} 0 ${at(innerR, 0)} Z`;
+
+  // Oltre il limite il blu resta solo nella parte non ancora coperta dal rosso, così sotto il
+  // rosso non c'è blu. Lo allungo di 1.5px oltre le ore 12 per non lasciare una fessura chiara
+  // nel punto in cui il rosso inizia.
+  const blueRemaining = (1 - red) * circumference + 1.5;
 
   const pressIn = () =>
     Animated.spring(scale, { toValue: 0.94, useNativeDriver: true, speed: 40 }).start();
@@ -61,7 +70,7 @@ export function PuffRing({ size, puffs, mgToday, limitMg, onPress }: Props) {
           strokeWidth={STROKE}
           fill="none"
         />
-        {blue > 0 && (
+        {blue > 0 && red === 0 && (
           <Circle
             cx={center}
             cy={center}
@@ -76,26 +85,32 @@ export function PuffRing({ size, puffs, mgToday, limitMg, onPress }: Props) {
             transform={`rotate(-90 ${center} ${center})`}
           />
         )}
-        {red > 0 && (
+        {red > 0 && red < 1 && (
           <>
-            {/* Inizio netto (butt) esattamente alle ore 12, così il rosso parte dove finisce il blu. */}
+            {/* Blu residuo: dal punto in cui arriva il rosso fino alle ore 12. */}
             <Circle
               cx={center}
               cy={center}
               r={radius}
-              stroke={Colors.danger}
+              stroke={Colors.primary}
               strokeWidth={STROKE}
               strokeLinecap="butt"
               fill="none"
-              strokeDasharray={red < 1 ? `${circumference} ${circumference}` : undefined}
-              strokeDashoffset={red < 1 ? circumference * (1 - red) : undefined}
-              transform={`rotate(-90 ${center} ${center})`}
+              strokeDasharray={`${blueRemaining} ${circumference * 2}`}
+              transform={`rotate(${red * 360 - 90} ${center} ${center})`}
             />
-            {/* Testa arrotondata come quella del blu. */}
-            {red < 1 && (
-              <Path d={redHeadPath} fill={Colors.danger} />
-            )}
+            <Path d={redPath} fill={Colors.danger} />
           </>
+        )}
+        {red >= 1 && (
+          <Circle
+            cx={center}
+            cy={center}
+            r={radius}
+            stroke={Colors.danger}
+            strokeWidth={STROKE}
+            fill="none"
+          />
         )}
       </Svg>
 
