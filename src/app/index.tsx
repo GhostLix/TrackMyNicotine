@@ -66,7 +66,11 @@ export default function HomeScreen() {
 
   const contentWidth = Math.min(width, MAX_CONTENT_WIDTH) - Spacing.md * 2;
   const counterSize =
-    dev.counter === 2 ? contentWidth - Spacing.md * 2 : Math.min(contentWidth - Spacing.lg * 2, 300);
+    dev.counter === 2
+      ? contentWidth - Spacing.md * 2
+      : layout === 5
+        ? Math.min(contentWidth - Spacing.sm * 2, 330)
+        : Math.min(contentWidth - Spacing.lg * 2, 300);
 
   const selector = (onColor?: boolean) => (
     <ProductSelector
@@ -176,6 +180,38 @@ export default function HomeScreen() {
         {chartCard}
       </View>
     );
+  } else if (layout === 4) {
+    // Fluttuante: niente card dietro al contatore, che galleggia sullo sfondo.
+    content = (
+      <View style={[styles.content, { paddingTop: insets.top + Spacing.md }]}>
+        <View style={styles.ringHeader}>
+          <View>
+            <Text style={styles.ringDate}>{formatToday(now)}</Text>
+            <Text style={styles.pageTitle}>Oggi</Text>
+          </View>
+          {limitPill()}
+        </View>
+        {selector()}
+        <View style={styles.floatingCounter}>{counterBlock}</View>
+        {chartCard}
+      </View>
+    );
+  } else if (layout === 5) {
+    // Focus: contatore grande al centro, numeri in linea sotto.
+    content = (
+      <View style={[styles.content, { paddingTop: insets.top + Spacing.sm }]}>
+        {selector()}
+        <View style={styles.focusCounter}>{counterBlock}</View>
+        <View style={styles.inlineStats}>
+          <InlineStat label="tiri oggi" value={String(today.length)} />
+          <View style={styles.inlineDot} />
+          <InlineStat label="mg oggi" value={formatMg(mgToday)} danger={overLimit} />
+          <View style={styles.inlineDot} />
+          <InlineStat label={`limite ${limit} mg`} value={`${Math.round((mgToday / limit) * 100)}%`} danger={overLimit} />
+        </View>
+        {chartCard}
+      </View>
+    );
   } else {
     content = (
       <View style={[styles.content, { paddingTop: insets.top + Spacing.md }]}>
@@ -213,6 +249,16 @@ export default function HomeScreen() {
           </View>
         </View>
       </Modal>
+    </View>
+  );
+}
+
+function InlineStat({ label, value, danger }: { label: string; value: string; danger?: boolean }) {
+  const styles = useStyles(makeStyles);
+  return (
+    <View style={styles.inlineStat}>
+      <Text style={[styles.inlineValue, danger && styles.limitTextOver]}>{value}</Text>
+      <Text style={styles.tileLabel}>{label}</Text>
     </View>
   );
 }
@@ -326,6 +372,37 @@ const makeStyles = (t: Theme) =>
     },
     limitTextOnColor: {
       color: t.colors.onPrimary,
+    },
+    floatingCounter: {
+      alignItems: 'center',
+      gap: Spacing.md,
+      paddingVertical: Spacing.lg,
+    },
+    focusCounter: {
+      alignItems: 'center',
+      gap: Spacing.md,
+      paddingTop: Spacing.xl,
+      paddingBottom: Spacing.md,
+    },
+    inlineStats: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: Spacing.md,
+      paddingBottom: Spacing.md,
+    },
+    inlineStat: {
+      alignItems: 'center',
+    },
+    inlineValue: {
+      ...t.text(22, '800'),
+      color: t.colors.text,
+    },
+    inlineDot: {
+      width: 4,
+      height: 4,
+      borderRadius: 2,
+      backgroundColor: t.colors.control,
     },
     pageTitle: {
       ...t.text(30, '800'),

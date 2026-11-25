@@ -20,6 +20,8 @@ export function PuffCounter(props: CounterProps) {
   const { dev } = useDevSettings();
   if (dev.counter === 2) return <PuffBar {...props} />;
   if (dev.counter === 3) return <PuffFill {...props} />;
+  if (dev.counter === 4) return <PuffRing {...props} stroke={10} gap={30} inner="glow" />;
+  if (dev.counter === 5) return <PuffRing {...props} stroke={7} gap={10} inner="none" />;
   return <PuffRing {...props} />;
 }
 

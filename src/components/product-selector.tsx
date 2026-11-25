@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,12 +22,14 @@ type Props = {
 /** Selettore del prodotto in uso, nella variante scelta nelle Impostazioni developer. */
 export function ProductSelector(props: Props) {
   const { dev } = useDevSettings();
-  if (dev.picker === 2) return <ProductChips {...props} />;
-  if (dev.picker === 3) return <ProductSheet {...props} />;
-  return <ProductPicker products={props.products} selected={props.selected} onSelect={props.onSelect} />;
+  if (dev.picker === 2) {
+    return <ProductPicker products={props.products} selected={props.selected} onSelect={props.onSelect} />;
+  }
+  if (dev.picker === 3) return <ProductChips {...props} />;
+  return <ProductSheet {...props} />;
 }
 
-/** Variante 2: fila scorrevole di chip, un tocco per cambiare prodotto. */
+/** Variante 3: fila scorrevole di chip, un tocco per cambiare prodotto. */
 function ProductChips({ products, selected, onSelect, onColor }: Props) {
   const styles = useStyles(makeStyles);
   return (
@@ -67,8 +70,8 @@ function ProductChips({ products, selected, onSelect, onColor }: Props) {
   );
 }
 
-/** Variante 3: pulsante che apre un pannello dal basso con l'elenco dei predefiniti. */
-function ProductSheet({ products, selected, onSelect }: Props) {
+/** Variante 1 (predefinita): pulsante che apre un pannello dal basso con l'elenco dei predefiniti. */
+function ProductSheet({ products, selected, onSelect, onColor }: Props) {
   const styles = useStyles(makeStyles);
   const t = useTheme();
   const insets = useSafeAreaInsets();
@@ -80,17 +83,16 @@ function ProductSheet({ products, selected, onSelect }: Props) {
         onPress={() => setOpen(true)}
         accessibilityRole="button"
         accessibilityLabel={`Prodotto selezionato: ${selected.name}. Tocca per cambiare`}
-        style={({ pressed }) => [styles.trigger, pressed && styles.pressed]}>
-        <ScoreBadge score={scoreFor(selected.mgPerPuff)} size="lg" />
+        style={({ pressed }) => [styles.trigger, onColor && styles.triggerOnColor, pressed && styles.pressed]}>
+        <ScoreBadge score={scoreFor(selected.mgPerPuff)} />
         <View style={styles.triggerText}>
-          <Text style={styles.caption}>Stai usando</Text>
-          <Text style={styles.triggerLabel} numberOfLines={1}>
+          <Text style={[styles.caption, onColor && styles.captionOnColor]}>Prodotto</Text>
+          <Text style={[styles.triggerLabel, onColor && styles.triggerLabelOnColor]} numberOfLines={1}>
             {selected.name}
           </Text>
         </View>
-        <View style={styles.changePill}>
-          <Ionicons name="swap-vertical" size={14} color={t.colors.primaryDark} />
-          <Text style={styles.changeText}>Cambia</Text>
+        <View style={[styles.chevron, onColor && styles.chevronOnColor]}>
+          <Ionicons name="chevron-down" size={16} color={onColor ? t.colors.onPrimary : t.colors.primaryDark} />
         </View>
       </Pressable>
 
@@ -132,6 +134,15 @@ function ProductSheet({ products, selected, onSelect }: Props) {
               );
             })}
           </ScrollView>
+          <Pressable
+            onPress={() => {
+              setOpen(false);
+              router.navigate('/prodotti');
+            }}
+            style={({ pressed }) => [styles.manage, pressed && styles.pressed]}>
+            <Ionicons name="options-outline" size={16} color={t.colors.primary} />
+            <Text style={styles.manageText}>Gestisci i prodotti</Text>
+          </Pressable>
         </View>
       </Modal>
     </>
@@ -191,39 +202,50 @@ const makeStyles = (t: Theme) =>
       flexDirection: 'row',
       alignItems: 'center',
       gap: 12,
-      padding: 10,
-      paddingRight: 12,
-      borderRadius: t.radius.lg,
+      paddingVertical: 9,
+      paddingLeft: 10,
+      paddingRight: 9,
+      borderRadius: t.radius.pill,
       backgroundColor: t.colors.card,
       ...t.elevation,
+    },
+    triggerOnColor: {
+      backgroundColor: 'rgba(255, 255, 255, 0.16)',
+      borderWidth: 0,
+      shadowOpacity: 0,
+      elevation: 0,
     },
     triggerText: {
       flex: 1,
       minWidth: 0,
     },
     caption: {
-      ...t.text(11, '600'),
+      ...t.text(10, '600'),
       color: t.colors.textMuted,
       textTransform: 'uppercase',
-      letterSpacing: 0.5,
+      letterSpacing: 0.8,
+    },
+    captionOnColor: {
+      color: t.colors.onPrimary,
+      opacity: 0.75,
     },
     triggerLabel: {
-      ...t.text(17, '700'),
+      ...t.text(15, '700'),
       color: t.colors.text,
     },
-    changePill: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-      backgroundColor: t.colors.primarySoft,
-      borderRadius: t.button.radius,
-      paddingHorizontal: 10,
-      paddingVertical: 7,
+    triggerLabelOnColor: {
+      color: t.colors.onPrimary,
     },
-    changeText: {
-      ...t.text(13, '700'),
-      ...t.button.label,
-      color: t.colors.primaryDark,
+    chevron: {
+      width: 32,
+      height: 32,
+      borderRadius: 16,
+      backgroundColor: t.colors.primarySoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    chevronOnColor: {
+      backgroundColor: 'rgba(255, 255, 255, 0.2)',
     },
     sheetBackdrop: {
       ...StyleSheet.absoluteFill,
@@ -283,6 +305,21 @@ const makeStyles = (t: Theme) =>
       ...t.text(12, '400'),
       color: t.colors.textMuted,
       marginTop: 2,
+    },
+    manage: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 14,
+      marginTop: 4,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: t.colors.border,
+    },
+    manageText: {
+      ...t.text(14, '700'),
+      ...t.button.label,
+      color: t.colors.primary,
     },
     pressed: {
       opacity: 0.7,

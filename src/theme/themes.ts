@@ -7,7 +7,7 @@ import { Platform, type TextStyle, type ViewStyle } from 'react-native';
  */
 
 export type StyleId = 1 | 2 | 3;
-export type TextId = 1 | 2 | 3;
+export type TextId = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 export type ButtonId = 1 | 2 | 3;
 export type CardId = 1 | 2 | 3;
 
@@ -190,6 +190,58 @@ export const TEXTS: Record<TextId, TextDefinition> = {
       '800': 'SpaceGrotesk_700Bold',
     },
   },
+  4: {
+    id: 4,
+    name: 'Poppins',
+    description: 'Poppins: geometrico e deciso, molto usato nelle app moderne.',
+    scale: 0.96,
+    families: {
+      '400': 'Poppins_400Regular',
+      '500': 'Poppins_500Medium',
+      '600': 'Poppins_600SemiBold',
+      '700': 'Poppins_700Bold',
+      '800': 'Poppins_800ExtraBold',
+    },
+  },
+  5: {
+    id: 5,
+    name: 'Manrope',
+    description: 'Manrope: pulito e professionale, ottimo per i numeri grandi.',
+    scale: 1,
+    families: {
+      '400': 'Manrope_400Regular',
+      '500': 'Manrope_500Medium',
+      '600': 'Manrope_600SemiBold',
+      '700': 'Manrope_700Bold',
+      '800': 'Manrope_800ExtraBold',
+    },
+  },
+  6: {
+    id: 6,
+    name: 'DM Sans',
+    description: 'DM Sans: compatto e leggibile, dall’aspetto morbido.',
+    scale: 1,
+    families: {
+      '400': 'DMSans_400Regular',
+      '500': 'DMSans_500Medium',
+      '600': 'DMSans_600SemiBold',
+      '700': 'DMSans_700Bold',
+      '800': 'DMSans_800ExtraBold',
+    },
+  },
+  7: {
+    id: 7,
+    name: 'Outfit',
+    description: 'Outfit: tondeggiante e contemporaneo, titoli d’impatto.',
+    scale: 1.02,
+    families: {
+      '400': 'Outfit_400Regular',
+      '500': 'Outfit_500Medium',
+      '600': 'Outfit_600SemiBold',
+      '700': 'Outfit_700Bold',
+      '800': 'Outfit_800ExtraBold',
+    },
+  },
 };
 
 export type OptionMeta = { name: string; description: string };
@@ -209,11 +261,7 @@ export const DEV_GROUPS = {
   },
   text: {
     label: 'Testi',
-    options: [
-      { name: 'Sistema', description: TEXTS[1].description },
-      { name: 'Arrotondato', description: TEXTS[2].description },
-      { name: 'Moderno', description: TEXTS[3].description },
-    ],
+    options: Object.values(TEXTS).map((d) => ({ name: d.name, description: d.description })),
   },
   home: {
     label: 'Layout Home',
@@ -221,6 +269,8 @@ export const DEV_GROUPS = {
       { name: 'Card', description: 'Selettore in alto, contatore e grafico in due card separate.' },
       { name: 'Hero', description: 'Fascia colorata in alto con data e prodotto, contatore in primo piano.' },
       { name: 'Dashboard', description: 'Tre riquadri con i numeri chiave sopra il contatore.' },
+      { name: 'Fluttuante', description: 'Il contatore galleggia sullo sfondo, senza card: più aria e meno riquadri.' },
+      { name: 'Focus', description: 'Il contatore al centro e grande; numeri e grafico ridotti all’essenziale.' },
     ],
   },
   counter: {
@@ -229,6 +279,8 @@ export const DEV_GROUPS = {
       { name: 'Anello', description: 'Pulsante rotondo con anello che si riempie verso il limite.' },
       { name: 'Barra', description: 'Grande pulsante “+1 tiro” con barra di avanzamento sotto.' },
       { name: 'Riempimento', description: 'Cerchio che si riempie come un bicchiere man mano che fumi.' },
+      { name: 'Glow', description: 'Pulsante pieno e luminoso con un anello sottile intorno.' },
+      { name: 'Sottile', description: 'Solo un anello fine e numeri grandi, niente sfondo.' },
     ],
   },
   chart: {
@@ -242,9 +294,9 @@ export const DEV_GROUPS = {
   picker: {
     label: 'Selettore prodotto',
     options: [
+      { name: 'Pannello', description: 'Un pannello che sale dal basso, comodo col pollice.' },
       { name: 'Tendina', description: 'Menu a tendina a tutta larghezza.' },
       { name: 'Chip', description: 'I predefiniti in una fila scorrevole: un tocco per cambiare.' },
-      { name: 'Pannello', description: 'Un pannello che sale dal basso, comodo col pollice.' },
     ],
   },
   button: {
@@ -283,6 +335,30 @@ export const DEV_GROUPS = {
 } satisfies Record<string, { label: string; options: OptionMeta[] }>;
 
 export type DevGroupKey = keyof typeof DEV_GROUPS;
+
+/** Combinazioni già pronte, scelte guardando l'app: un tocco le applica tutte. */
+export const PRESETS: { name: string; description: string; dev: Record<DevGroupKey, number> }[] = [
+  {
+    name: 'Aria',
+    description: 'Chiaro e arioso: pulsante luminoso senza card, DM Sans, barra fluttuante.',
+    dev: { style: 1, text: 6, home: 4, counter: 4, chart: 3, picker: 1, button: 2, card: 3, nav: 2, products: 1 },
+  },
+  {
+    name: 'Notte',
+    description: 'Scuro e minimale: anello sottile al centro, Manrope, solo icone.',
+    dev: { style: 2, text: 5, home: 5, counter: 5, chart: 2, picker: 1, button: 2, card: 3, nav: 3, products: 1 },
+  },
+  {
+    name: 'Natura',
+    description: 'Verde e morbido: Outfit, pulsante “+1” sempre a portata nella barra.',
+    dev: { style: 3, text: 7, home: 4, counter: 4, chart: 1, picker: 1, button: 2, card: 1, nav: 4, products: 1 },
+  },
+  {
+    name: 'Energia',
+    description: 'Fascia blu in alto, anello sottile, Poppins e grafico a barre.',
+    dev: { style: 1, text: 4, home: 2, counter: 5, chart: 2, picker: 1, button: 2, card: 1, nav: 2, products: 1 },
+  },
+];
 
 export type Theme = StyleDefinition & {
   textDef: TextDefinition;

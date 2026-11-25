@@ -12,16 +12,33 @@ type Props = {
   mgToday: number;
   limitMg: number;
   onPress: () => void;
+  /** Spessore dell'anello. */
+  stroke?: number;
+  /** Spazio tra anello e pulsante interno. */
+  gap?: number;
+  /**
+   * Aspetto del pulsante interno: `card` (superficie con bordo), `glow` (pieno, colore
+   * primario con alone), `none` (niente sfondo: i numeri stanno direttamente nell'anello).
+   */
+  inner?: 'card' | 'glow' | 'none';
 };
-
-const STROKE = 20;
 
 /**
  * Anello di progresso: si riempie di blu fino al limite giornaliero.
  * Superato il limite parte un secondo giro, rosso, che sostituisce il blu
  * man mano (stesso spessore, colore pieno), fino a diventare tutto rosso a 2× il limite.
  */
-export function PuffRing({ size, puffs, mgToday, limitMg, onPress }: Props) {
+export function PuffRing({
+  size,
+  puffs,
+  mgToday,
+  limitMg,
+  onPress,
+  stroke = 20,
+  gap = 28,
+  inner = 'card',
+}: Props) {
+  const STROKE = stroke;
   const styles = useStyles(makeStyles);
   const t = useTheme();
   const scale = useRef(new Animated.Value(1)).current;
@@ -34,7 +51,9 @@ export function PuffRing({ size, puffs, mgToday, limitMg, onPress }: Props) {
   const blue = Math.min(ratio, 1);
   const red = Math.min(Math.max(ratio - 1, 0), 1);
 
-  const innerSize = size - STROKE * 2 - 28;
+  const innerSize = size - STROKE * 2 - gap;
+  const over = red > 0;
+  const glow = inner === 'glow';
 
   // Arco rosso disegnato come UNA sola forma piena (corpo dell'arco + punta a semicerchio):
   // niente giunture tra forme diverse dove l'antialiasing farebbe trasparire il blu.
@@ -127,17 +146,21 @@ export function PuffRing({ size, puffs, mgToday, limitMg, onPress }: Props) {
             accessibilityLabel={`Aggiungi un tiro. ${puffs} tiri oggi, ${formatMg(mgToday)} milligrammi`}
             style={[
               styles.button,
+              inner === 'glow' && [styles.buttonGlow, over && styles.buttonGlowOver],
+              inner === 'none' && styles.buttonNone,
               { width: innerSize, height: innerSize, borderRadius: innerSize / 2 },
             ]}>
-            <Text style={styles.plus}>+1</Text>
-            <Text style={styles.puffs}>{puffs}</Text>
-            <Text style={styles.label}>tiri oggi</Text>
-            <View style={styles.divider} />
-            <Text style={styles.mg}>
+            <Text style={[styles.plus, glow && styles.onGlow]}>+1</Text>
+            <Text style={[styles.puffs, glow && styles.onGlow, inner === 'none' && styles.puffsLarge]}>
+              {puffs}
+            </Text>
+            <Text style={[styles.label, glow && styles.onGlowMuted]}>tiri oggi</Text>
+            <View style={[styles.divider, glow && styles.dividerGlow]} />
+            <Text style={[styles.mg, glow && styles.onGlow]}>
               {formatMg(mgToday)}
               <Text style={styles.mgUnit}> mg</Text>
             </Text>
-            <Text style={styles.label}>assunti oggi</Text>
+            <Text style={[styles.label, glow && styles.onGlowMuted]}>assunti oggi</Text>
           </Pressable>
         </Animated.View>
       </View>
@@ -159,6 +182,39 @@ const makeStyles = (t: Theme) =>
       borderWidth: 6,
       borderColor: t.colors.primarySoft,
       ...t.elevation,
+    },
+    buttonGlow: {
+      backgroundColor: t.colors.primary,
+      borderWidth: 0,
+      shadowColor: t.colors.primary,
+      shadowOpacity: 0.45,
+      shadowRadius: 28,
+      shadowOffset: { width: 0, height: 10 },
+      elevation: 12,
+    },
+    buttonGlowOver: {
+      backgroundColor: t.colors.danger,
+      shadowColor: t.colors.danger,
+    },
+    buttonNone: {
+      backgroundColor: 'transparent',
+      borderWidth: 0,
+      shadowOpacity: 0,
+      elevation: 0,
+    },
+    onGlow: {
+      color: t.colors.onPrimary,
+    },
+    onGlowMuted: {
+      color: t.colors.onPrimary,
+      opacity: 0.8,
+    },
+    dividerGlow: {
+      backgroundColor: 'rgba(255, 255, 255, 0.35)',
+    },
+    puffsLarge: {
+      ...t.text(64, '800'),
+      lineHeight: 70,
     },
     plus: {
       ...t.text(18, '700'),

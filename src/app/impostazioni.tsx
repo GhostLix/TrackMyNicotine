@@ -10,6 +10,7 @@ import { useDevSettings, useStyles, useTheme } from '@/theme/theme-provider';
 import { DEFAULT_DEV } from '@/theme/theme-provider';
 import {
   DEV_GROUPS,
+  PRESETS,
   STYLES,
   TEXTS,
   type DevGroupKey,
@@ -56,6 +57,46 @@ export default function ImpostazioniScreen() {
           <Text style={styles.cardBody}>
             Prova le varianti di aspetto una per una: si applicano subito a tutta l’app.
           </Text>
+
+          <View style={styles.group}>
+            <Text style={styles.groupLabel}>Proposte</Text>
+            <View style={styles.presets}>
+              {PRESETS.map((preset) => {
+                const active = (Object.keys(DEV_GROUPS) as DevGroupKey[]).every(
+                  (k) => dev[k] === preset.dev[k],
+                );
+                const colors = STYLES[preset.dev.style as StyleId].colors;
+                const fam = TEXTS[preset.dev.text as TextId].families;
+                return (
+                  <Pressable
+                    key={preset.name}
+                    onPress={() => setDev(preset.dev)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: active }}
+                    accessibilityLabel={`Proposta ${preset.name}`}
+                    style={({ pressed }) => [
+                      styles.preset,
+                      { backgroundColor: colors.background },
+                      active && { borderColor: colors.primary },
+                      pressed && styles.pressed,
+                    ]}>
+                    <View style={[styles.presetDot, { backgroundColor: colors.primary }]} />
+                    <Text
+                      style={[
+                        styles.presetName,
+                        { color: colors.text },
+                        fam ? { fontFamily: fam['800'] } : { fontWeight: '800' },
+                      ]}>
+                      {preset.name}
+                    </Text>
+                    <Text style={[styles.presetDescription, { color: colors.textMuted }]} numberOfLines={3}>
+                      {preset.description}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
 
           {(Object.keys(DEV_GROUPS) as DevGroupKey[]).map((key) => (
             <OptionGroup
@@ -172,10 +213,11 @@ function OptionGroup({
 }) {
   const styles = useStyles(makeStyles);
   const twoColumns = options.length === 4;
+  const threeColumns = options.length > 4;
   return (
     <View style={styles.group}>
       <Text style={styles.groupLabel}>{label}</Text>
-      <View style={[styles.segments, twoColumns && styles.segmentsWrap]}>
+      <View style={[styles.segments, (twoColumns || threeColumns) && styles.segmentsWrap]}>
         {options.map((option, i) => {
           const id = i + 1;
           const active = id === value;
@@ -189,6 +231,7 @@ function OptionGroup({
               style={({ pressed }) => [
                 styles.segment,
                 twoColumns && styles.segmentHalf,
+                threeColumns && styles.segmentThird,
                 active && styles.segmentActive,
                 pressed && styles.pressed,
               ]}>
@@ -270,12 +313,45 @@ const makeStyles = (t: Theme) =>
       flexDirection: 'row',
       gap: Spacing.sm,
     },
+    presets: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: Spacing.sm,
+    },
+    preset: {
+      flexBasis: '47%',
+      flexGrow: 1,
+      gap: 4,
+      padding: 12,
+      borderRadius: t.radius.md,
+      borderWidth: 2,
+      borderColor: 'rgba(127, 127, 127, 0.25)',
+    },
+    presetDot: {
+      width: 22,
+      height: 22,
+      borderRadius: 11,
+      marginBottom: 4,
+    },
+    presetName: {
+      fontSize: 16,
+    },
+    presetDescription: {
+      fontSize: 12,
+      lineHeight: 16,
+    },
     segmentsWrap: {
       flexWrap: 'wrap',
     },
     segmentHalf: {
       flexBasis: '47%',
       flexGrow: 1,
+    },
+    segmentThird: {
+      flexBasis: '30%',
+      flexGrow: 0,
+      flex: 0,
+      width: '31.5%',
     },
     segment: {
       flex: 1,
