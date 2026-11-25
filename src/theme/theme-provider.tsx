@@ -21,8 +21,10 @@ import {
 
 import {
   buildTheme,
-  type NavId,
-  type ProductsLayoutId,
+  DEV_GROUPS,
+  type ButtonId,
+  type CardId,
+  type DevGroupKey,
   type StyleId,
   type TextId,
   type Theme,
@@ -31,14 +33,12 @@ import {
 /** Salvato a parte dai dati dell'app: "Cancella tutti i dati" e l'anteprima web non lo azzerano. */
 const DEV_KEY = 'trackmynicotine/dev/v1';
 
-export type DevSettings = {
-  style: StyleId;
-  text: TextId;
-  nav: NavId;
-  products: ProductsLayoutId;
-};
+/** Variante scelta per ogni gruppo (numerate da 1). */
+export type DevSettings = Record<DevGroupKey, number>;
 
-const DEFAULT_DEV: DevSettings = { style: 1, text: 1, nav: 1, products: 1 };
+export const DEFAULT_DEV: DevSettings = Object.fromEntries(
+  Object.keys(DEV_GROUPS).map((k) => [k, 1]),
+) as DevSettings;
 
 type ThemeContextValue = {
   theme: Theme;
@@ -50,8 +50,14 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-function isChoice(v: unknown): v is 1 | 2 | 3 {
-  return v === 1 || v === 2 || v === 3;
+function sanitize(raw: Partial<Record<string, unknown>>): DevSettings {
+  const out = { ...DEFAULT_DEV };
+  for (const key of Object.keys(DEV_GROUPS) as DevGroupKey[]) {
+    const v = raw[key];
+    const max = DEV_GROUPS[key].options.length;
+    if (typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= max) out[key] = v;
+  }
+  return out;
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -73,13 +79,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     AsyncStorage.getItem(DEV_KEY)
       .then((raw) => {
         if (!raw) return;
-        const parsed = JSON.parse(raw) as Partial<DevSettings>;
-        setDevState({
-          style: isChoice(parsed.style) ? parsed.style : 1,
-          text: isChoice(parsed.text) ? parsed.text : 1,
-          nav: isChoice(parsed.nav) ? parsed.nav : 1,
-          products: isChoice(parsed.products) ? parsed.products : 1,
-        });
+        setDevState(sanitize(JSON.parse(raw) as Partial<Record<string, unknown>>));
       })
       .catch(() => {})
       .finally(() => setDevLoaded(true));
@@ -94,8 +94,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Se un font non si carica si usa quello di sistema, invece di bloccare l'app.
-  const textId: TextId = fontError ? 1 : dev.text;
-  const theme = useMemo(() => buildTheme(dev.style, textId), [dev.style, textId]);
+  const textId = (fontError ? 1 : dev.text) as TextId;
+  const theme = useMemo(
+    () => buildTheme(dev.style as StyleId, textId, dev.button as ButtonId, dev.card as CardId),
+    [dev.style, textId, dev.button, dev.card],
+  );
   const ready = devLoaded && (fontsLoaded || !!fontError);
 
   const value = useMemo(() => ({ theme, dev, setDev, ready }), [theme, dev, setDev, ready]);

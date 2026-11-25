@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
-import type { ComponentProps } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRef, type ComponentProps } from 'react';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+
+import { useNicotine } from '@/store/nicotine-store';
 
 import { useDevSettings, useStyles, useTheme } from '@/theme/theme-provider';
 import type { Theme } from '@/theme/themes';
@@ -20,6 +22,8 @@ export function TabBar({ state, descriptors, navigateToTab, insets }: BottomTabB
   const styles = useStyles(makeStyles);
   const t = useTheme();
   const { dev } = useDevSettings();
+  const { addPuff } = useNicotine();
+  const bump = useRef(new Animated.Value(1)).current;
   const variant = dev.nav;
 
   const items = state.routes.map((route, index) => {
@@ -29,6 +33,49 @@ export function TabBar({ state, descriptors, navigateToTab, insets }: BottomTabB
     const color = focused ? t.colors.primary : t.colors.textMuted;
     return { route, focused, title, icon, color };
   });
+
+  if (variant === 4) {
+    // Con +1: barra classica con un pulsante centrale rialzato che registra un tiro ovunque.
+    const onPlus = () => {
+      addPuff();
+      Animated.sequence([
+        Animated.timing(bump, { toValue: 0.88, duration: 80, useNativeDriver: true }),
+        Animated.spring(bump, { toValue: 1, friction: 4, useNativeDriver: true }),
+      ]).start();
+    };
+    const half = Math.ceil(items.length / 2);
+    const renderItem = ({ route, focused, title, icon, color }: (typeof items)[number]) => (
+      <Pressable
+        key={route.key}
+        onPress={() => navigateToTab(route.key)}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: focused }}
+        style={styles.classicItem}>
+        <View style={[styles.classicIndicator, focused && styles.classicIndicatorActive]} />
+        <Ionicons name={focused ? icon.active : icon.inactive} size={24} color={color} />
+        <Text style={[styles.classicLabel, { color }]} numberOfLines={1}>
+          {title}
+        </Text>
+      </Pressable>
+    );
+    return (
+      <View style={[styles.classic, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+        {items.slice(0, half).map(renderItem)}
+        <View style={styles.plusSlot}>
+          <Animated.View style={{ transform: [{ scale: bump }] }}>
+            <Pressable
+              onPress={onPlus}
+              accessibilityRole="button"
+              accessibilityLabel="Registra un tiro"
+              style={({ pressed }) => [styles.plusButton, pressed && { opacity: 0.85 }]}>
+              <Text style={styles.plusText}>+1</Text>
+            </Pressable>
+          </Animated.View>
+        </View>
+        {items.slice(half).map(renderItem)}
+      </View>
+    );
+  }
 
   if (variant === 2) {
     // Fluttuante: pillola sospesa, la voce attiva si allarga e mostra il nome.
@@ -128,6 +175,30 @@ const makeStyles = (t: Theme) =>
     },
     classicLabel: {
       ...t.text(11, '600'),
+    },
+    plusSlot: {
+      width: 76,
+      alignItems: 'center',
+    },
+    plusButton: {
+      width: 62,
+      height: 62,
+      borderRadius: 31,
+      marginTop: -22,
+      backgroundColor: t.colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 4,
+      borderColor: t.colors.card,
+      shadowColor: t.colors.primary,
+      shadowOpacity: 0.4,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 6 },
+      elevation: 8,
+    },
+    plusText: {
+      ...t.text(22, '800'),
+      color: t.colors.onPrimary,
     },
     floatingWrap: {
       backgroundColor: t.colors.background,

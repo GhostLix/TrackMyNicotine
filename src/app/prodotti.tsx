@@ -409,7 +409,7 @@ const makeStyles = (t: Theme) =>
       alignItems: 'center',
       gap: 4,
       backgroundColor: t.colors.primary,
-      borderRadius: t.radius.pill,
+      borderRadius: t.button.radius,
       paddingVertical: 10,
       paddingLeft: 12,
       paddingRight: 16,
@@ -417,6 +417,7 @@ const makeStyles = (t: Theme) =>
     addText: {
       color: t.colors.onPrimary,
       ...t.text(14, '700'),
+      ...t.button.label,
     },
     search: {
       flexDirection: 'row',

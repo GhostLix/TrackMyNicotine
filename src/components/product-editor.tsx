@@ -413,7 +413,7 @@ const makeStyles = (t: Theme) =>
     },
     aiButton: {
       backgroundColor: t.colors.primary,
-      borderRadius: t.radius.md,
+      borderRadius: t.button.radius,
       paddingHorizontal: Spacing.md,
       justifyContent: 'center',
       minWidth: 72,
@@ -422,6 +422,7 @@ const makeStyles = (t: Theme) =>
     aiButtonText: {
       color: t.colors.onPrimary,
       ...t.weight('700'),
+      ...t.button.label,
     },
     aiResult: {
       backgroundColor: t.colors.card,
@@ -459,7 +460,7 @@ const makeStyles = (t: Theme) =>
     },
     applyButton: {
       marginTop: 4,
-      borderRadius: t.radius.sm,
+      borderRadius: t.button.radius,
       borderWidth: 1.5,
       borderColor: t.colors.primary,
       paddingVertical: 10,
@@ -468,6 +469,7 @@ const makeStyles = (t: Theme) =>
     applyText: {
       color: t.colors.primary,
       ...t.weight('700'),
+      ...t.button.label,
     },
     field: {
       gap: 6,
@@ -531,13 +533,14 @@ const makeStyles = (t: Theme) =>
     },
     primary: {
       backgroundColor: t.colors.primary,
-      borderRadius: t.radius.md,
+      borderRadius: t.button.radius,
       paddingVertical: 16,
       alignItems: 'center',
     },
     primaryText: {
       color: t.colors.onPrimary,
       ...t.text(16, '700'),
+      ...t.button.label,
     },
     disabled: {
       opacity: 0.4,
@@ -551,7 +554,7 @@ const makeStyles = (t: Theme) =>
     },
     secondary: {
       backgroundColor: t.colors.background,
-      borderRadius: t.radius.md,
+      borderRadius: t.button.radius,
       paddingVertical: 14,
       paddingHorizontal: Spacing.md,
       alignItems: 'center',
@@ -559,10 +562,11 @@ const makeStyles = (t: Theme) =>
     secondaryText: {
       color: t.colors.text,
       ...t.weight('700'),
+      ...t.button.label,
     },
     danger: {
       backgroundColor: t.colors.dangerSoft,
-      borderRadius: t.radius.md,
+      borderRadius: t.button.radius,
       paddingVertical: 14,
       alignItems: 'center',
     },
@@ -573,6 +577,7 @@ const makeStyles = (t: Theme) =>
     dangerText: {
       color: t.colors.danger,
       ...t.weight('700'),
+      ...t.button.label,
     },
     cancel: {
       alignSelf: 'center',

@@ -7,16 +7,17 @@ import { DailyLimitEditor } from '@/components/daily-limit-editor';
 import { Spacing } from '@/constants/theme';
 import { useNicotine } from '@/store/nicotine-store';
 import { useDevSettings, useStyles, useTheme } from '@/theme/theme-provider';
+import { DEFAULT_DEV } from '@/theme/theme-provider';
 import {
-  NAVS,
-  PRODUCT_LAYOUTS,
+  DEV_GROUPS,
   STYLES,
   TEXTS,
+  type DevGroupKey,
+  type OptionMeta,
+  type StyleId,
+  type TextId,
   type Theme,
 } from '@/theme/themes';
-
-type Choice = 1 | 2 | 3;
-type OptionMeta = { name: string; description: string };
 
 export default function ImpostazioniScreen() {
   const styles = useStyles(makeStyles);
@@ -56,54 +57,44 @@ export default function ImpostazioniScreen() {
             Prova le varianti di aspetto una per una: si applicano subito a tutta l’app.
           </Text>
 
-          <OptionGroup
-            label="Stile"
-            value={dev.style}
-            options={STYLES}
-            onChange={(style) => setDev({ style })}
-            renderExtra={(id) => (
-              <View style={styles.swatches}>
-                {[STYLES[id].colors.background, STYLES[id].colors.card, STYLES[id].colors.primary].map(
-                  (c, i) => (
-                    <View key={i} style={[styles.swatch, { backgroundColor: c }]} />
-                  ),
-                )}
-              </View>
-            )}
-          />
-          <OptionGroup
-            label="Testi"
-            value={dev.text}
-            options={TEXTS}
-            onChange={(text) => setDev({ text })}
-            renderExtra={(id) => (
-              <Text
-                style={[
-                  styles.fontSample,
-                  TEXTS[id].families ? { fontFamily: TEXTS[id].families!['700'] } : { fontWeight: '700' },
-                ]}>
-                Aa 12
-              </Text>
-            )}
-          />
-          <OptionGroup
-            label="Barra di navigazione"
-            value={dev.nav}
-            options={NAVS}
-            onChange={(nav) => setDev({ nav })}
-          />
-          <OptionGroup
-            label="Organizzazione prodotti"
-            value={dev.products}
-            options={PRODUCT_LAYOUTS}
-            onChange={(products) => setDev({ products })}
-          />
+          {(Object.keys(DEV_GROUPS) as DevGroupKey[]).map((key) => (
+            <OptionGroup
+              key={key}
+              label={DEV_GROUPS[key].label}
+              value={dev[key]}
+              options={DEV_GROUPS[key].options}
+              onChange={(v) => setDev({ [key]: v })}
+              renderExtra={
+                key === 'style'
+                  ? (id) => (
+                      <View style={styles.swatches}>
+                        {(['background', 'card', 'primary'] as const).map((c) => (
+                          <View
+                            key={c}
+                            style={[styles.swatch, { backgroundColor: STYLES[id as StyleId].colors[c] }]}
+                          />
+                        ))}
+                      </View>
+                    )
+                  : key === 'text'
+                    ? (id) => {
+                        const fam = TEXTS[id as TextId].families;
+                        return (
+                          <Text style={[styles.fontSample, fam ? { fontFamily: fam['700'] } : { fontWeight: '700' }]}>
+                            Aa 12
+                          </Text>
+                        );
+                      }
+                    : undefined
+              }
+            />
+          ))}
 
           <Pressable
-            onPress={() => setDev({ style: 1, text: 1, nav: 1, products: 1 })}
+            onPress={() => setDev(DEFAULT_DEV)}
             style={({ pressed }) => [styles.linkButton, pressed && styles.pressed]}>
             <Ionicons name="refresh" size={15} color={t.colors.primary} />
-            <Text style={styles.linkText}>Torna alle varianti 1</Text>
+            <Text style={styles.linkText}>Torna a tutte le varianti 1</Text>
           </Pressable>
         </View>
 
@@ -166,7 +157,7 @@ function SectionHeader({
   );
 }
 
-function OptionGroup<T extends Choice>({
+function OptionGroup({
   label,
   value,
   options,
@@ -174,18 +165,19 @@ function OptionGroup<T extends Choice>({
   renderExtra,
 }: {
   label: string;
-  value: T;
-  options: Record<T, OptionMeta>;
-  onChange: (v: T) => void;
-  renderExtra?: (id: T) => React.ReactNode;
+  value: number;
+  options: OptionMeta[];
+  onChange: (v: number) => void;
+  renderExtra?: (id: number) => React.ReactNode;
 }) {
   const styles = useStyles(makeStyles);
-  const ids = [1, 2, 3] as T[];
+  const twoColumns = options.length === 4;
   return (
     <View style={styles.group}>
       <Text style={styles.groupLabel}>{label}</Text>
-      <View style={styles.segments}>
-        {ids.map((id) => {
+      <View style={[styles.segments, twoColumns && styles.segmentsWrap]}>
+        {options.map((option, i) => {
+          const id = i + 1;
           const active = id === value;
           return (
             <Pressable
@@ -193,24 +185,23 @@ function OptionGroup<T extends Choice>({
               onPress={() => onChange(id)}
               accessibilityRole="radio"
               accessibilityState={{ checked: active }}
-              accessibilityLabel={`${label}: ${id} ${options[id].name}`}
+              accessibilityLabel={`${label}: ${id} ${option.name}`}
               style={({ pressed }) => [
                 styles.segment,
+                twoColumns && styles.segmentHalf,
                 active && styles.segmentActive,
                 pressed && styles.pressed,
               ]}>
               <Text style={[styles.segmentNumber, active && styles.segmentTextActive]}>{id}</Text>
-              <Text
-                style={[styles.segmentName, active && styles.segmentTextActive]}
-                numberOfLines={1}>
-                {options[id].name}
+              <Text style={[styles.segmentName, active && styles.segmentTextActive]} numberOfLines={1}>
+                {option.name}
               </Text>
               {renderExtra?.(id)}
             </Pressable>
           );
         })}
       </View>
-      <Text style={styles.groupDescription}>{options[value].description}</Text>
+      <Text style={styles.groupDescription}>{options[value - 1]?.description}</Text>
     </View>
   );
 }
@@ -279,6 +270,13 @@ const makeStyles = (t: Theme) =>
       flexDirection: 'row',
       gap: Spacing.sm,
     },
+    segmentsWrap: {
+      flexWrap: 'wrap',
+    },
+    segmentHalf: {
+      flexBasis: '47%',
+      flexGrow: 1,
+    },
     segment: {
       flex: 1,
       minWidth: 0,
@@ -345,7 +343,7 @@ const makeStyles = (t: Theme) =>
     },
     secondary: {
       backgroundColor: t.colors.surface,
-      borderRadius: t.radius.md,
+      borderRadius: t.button.radius,
       paddingVertical: 14,
       paddingHorizontal: Spacing.md,
       alignItems: 'center',
@@ -353,16 +351,18 @@ const makeStyles = (t: Theme) =>
     secondaryText: {
       ...t.text(15, '700'),
       color: t.colors.text,
+      ...t.button.label,
     },
     danger: {
       backgroundColor: t.colors.dangerSoft,
-      borderRadius: t.radius.md,
+      borderRadius: t.button.radius,
       paddingVertical: 14,
       alignItems: 'center',
     },
     dangerText: {
       ...t.text(15, '700'),
       color: t.colors.danger,
+      ...t.button.label,
     },
     flex: {
       flex: 1,

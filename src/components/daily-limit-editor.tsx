@@ -97,7 +97,7 @@ const makeStyles = (t: Theme) =>
       flex: 1,
       alignItems: 'center',
       paddingVertical: 10,
-      borderRadius: t.radius.sm,
+      borderRadius: t.button.radius,
       backgroundColor: t.colors.primarySoft,
     },
     chipActive: {
@@ -112,7 +112,7 @@ const makeStyles = (t: Theme) =>
     },
     confirm: {
       backgroundColor: t.colors.primary,
-      borderRadius: t.radius.md,
+      borderRadius: t.button.radius,
       paddingVertical: 16,
       alignItems: 'center',
     },
@@ -122,5 +122,6 @@ const makeStyles = (t: Theme) =>
     confirmText: {
       color: t.colors.onPrimary,
       ...t.text(16, '700'),
+      ...t.button.label,
     },
   });

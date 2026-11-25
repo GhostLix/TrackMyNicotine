@@ -8,8 +8,8 @@ import { Platform, type TextStyle, type ViewStyle } from 'react-native';
 
 export type StyleId = 1 | 2 | 3;
 export type TextId = 1 | 2 | 3;
-export type NavId = 1 | 2 | 3;
-export type ProductsLayoutId = 1 | 2 | 3;
+export type ButtonId = 1 | 2 | 3;
+export type CardId = 1 | 2 | 3;
 
 export type Palette = {
   /** Sfondo della schermata. */
@@ -192,17 +192,97 @@ export const TEXTS: Record<TextId, TextDefinition> = {
   },
 };
 
-export const NAVS: Record<NavId, { name: string; description: string }> = {
-  1: { name: 'Classica', description: 'Barra in basso con icona e nome per ogni sezione.' },
-  2: { name: 'Fluttuante', description: 'Pillola sospesa: la sezione attiva si allarga e mostra il nome.' },
-  3: { name: 'Minimal', description: 'Solo icone, un puntino indica la sezione attiva.' },
-};
+export type OptionMeta = { name: string; description: string };
 
-export const PRODUCT_LAYOUTS: Record<ProductsLayoutId, { name: string; description: string }> = {
-  1: { name: 'Per tipo', description: 'Un unico elenco diviso per tipo di prodotto.' },
-  2: { name: 'Filtri', description: 'Chip in alto per vedere un tipo alla volta.' },
-  3: { name: 'Per punteggio', description: 'Prodotti raggruppati per lettera, dalla A alla E.' },
-};
+/**
+ * Gruppi delle Impostazioni developer. L'ordine qui è l'ordine in cui compaiono.
+ * Ogni gruppo ha le sue varianti numerate da 1.
+ */
+export const DEV_GROUPS = {
+  style: {
+    label: 'Colori',
+    options: [
+      { name: 'Classico', description: STYLES[1].description },
+      { name: 'Notte', description: STYLES[2].description },
+      { name: 'Natura', description: STYLES[3].description },
+    ],
+  },
+  text: {
+    label: 'Testi',
+    options: [
+      { name: 'Sistema', description: TEXTS[1].description },
+      { name: 'Arrotondato', description: TEXTS[2].description },
+      { name: 'Moderno', description: TEXTS[3].description },
+    ],
+  },
+  home: {
+    label: 'Layout Home',
+    options: [
+      { name: 'Card', description: 'Selettore in alto, contatore e grafico in due card separate.' },
+      { name: 'Hero', description: 'Fascia colorata in alto con data e prodotto, contatore in primo piano.' },
+      { name: 'Dashboard', description: 'Tre riquadri con i numeri chiave sopra il contatore.' },
+    ],
+  },
+  counter: {
+    label: 'Contatore',
+    options: [
+      { name: 'Anello', description: 'Pulsante rotondo con anello che si riempie verso il limite.' },
+      { name: 'Barra', description: 'Grande pulsante “+1 tiro” con barra di avanzamento sotto.' },
+      { name: 'Riempimento', description: 'Cerchio che si riempie come un bicchiere man mano che fumi.' },
+    ],
+  },
+  chart: {
+    label: 'Grafico',
+    options: [
+      { name: 'Area', description: 'Nicotina nel corpo nelle ultime 24 ore, con area colorata.' },
+      { name: 'Barre', description: 'Nicotina assunta ora per ora nelle ultime 24 ore.' },
+      { name: 'Linea', description: 'Linea essenziale con il punto attuale evidenziato.' },
+    ],
+  },
+  picker: {
+    label: 'Selettore prodotto',
+    options: [
+      { name: 'Tendina', description: 'Menu a tendina a tutta larghezza.' },
+      { name: 'Chip', description: 'I predefiniti in una fila scorrevole: un tocco per cambiare.' },
+      { name: 'Pannello', description: 'Un pannello che sale dal basso, comodo col pollice.' },
+    ],
+  },
+  button: {
+    label: 'Bottoni',
+    options: [
+      { name: 'Arrotondati', description: 'Angoli morbidi, testo normale.' },
+      { name: 'Pillola', description: 'Completamente tondi ai lati.' },
+      { name: 'Squadrati', description: 'Angoli stretti e testo in maiuscolo.' },
+    ],
+  },
+  card: {
+    label: 'Card',
+    options: [
+      { name: 'Ombra', description: 'Card sollevate con un’ombra morbida.' },
+      { name: 'Bordo', description: 'Card piatte con un bordo sottile.' },
+      { name: 'Piatte', description: 'Nessun bordo né ombra: solo il colore della superficie.' },
+    ],
+  },
+  nav: {
+    label: 'Barra di navigazione',
+    options: [
+      { name: 'Classica', description: 'Icona e nome per ogni sezione.' },
+      { name: 'Fluttuante', description: 'Pillola sospesa: la sezione attiva si allarga e mostra il nome.' },
+      { name: 'Minimal', description: 'Solo icone, un puntino indica la sezione attiva.' },
+      { name: 'Con +1', description: 'Pulsante centrale per registrare un tiro da qualsiasi schermata.' },
+    ],
+  },
+  products: {
+    label: 'Organizzazione prodotti',
+    options: [
+      { name: 'Per tipo', description: 'Un unico elenco diviso per tipo di prodotto.' },
+      { name: 'Filtri', description: 'Chip in alto per vedere un tipo alla volta.' },
+      { name: 'Per punteggio', description: 'Prodotti raggruppati per lettera, dalla A alla E.' },
+    ],
+  },
+} satisfies Record<string, { label: string; options: OptionMeta[] }>;
+
+export type DevGroupKey = keyof typeof DEV_GROUPS;
 
 export type Theme = StyleDefinition & {
   textDef: TextDefinition;
@@ -210,15 +290,26 @@ export type Theme = StyleDefinition & {
   text: (size: number, weight?: Weight) => TextStyle;
   /** Solo il peso (o la famiglia equivalente), per testi annidati che ereditano la dimensione. */
   weight: (weight: Weight) => TextStyle;
-  /** Ombra delle card, o bordo sottile se lo stile è piatto. */
+  /** Aspetto delle card secondo la variante scelta (ombra, bordo o piatte). */
   elevation: ViewStyle;
+  /** Forma dei bottoni: raggio e testo. */
+  button: { radius: number; label: TextStyle };
   /** Font per i testi dentro gli SVG (assi del grafico). */
   svgFont: string | undefined;
 };
 
-export function buildTheme(styleId: StyleId, textId: TextId): Theme {
+export function buildTheme(styleId: StyleId, textId: TextId, buttonId: ButtonId = 1, cardId: CardId = 1): Theme {
   const style = STYLES[styleId];
   const textDef = TEXTS[textId];
+  const border = { borderWidth: 1, borderColor: style.colors.border };
+  const elevation: ViewStyle =
+    cardId === 1 ? (style.shadow ?? border) : cardId === 2 ? border : { borderWidth: 0 };
+  const button =
+    buttonId === 2
+      ? { radius: 999, label: {} }
+      : buttonId === 3
+        ? { radius: 6, label: { textTransform: 'uppercase' as const, letterSpacing: 0.8 } }
+        : { radius: style.radius.md, label: {} };
   return {
     ...style,
     textDef,
@@ -229,7 +320,8 @@ export function buildTheme(styleId: StyleId, textId: TextId): Theme {
         : { fontSize: Math.round(size * textDef.scale * 10) / 10, fontWeight: weight },
     weight: (weight) =>
       textDef.families ? { fontFamily: textDef.families[weight] } : { fontWeight: weight },
-    elevation: style.shadow ?? { borderWidth: 1, borderColor: style.colors.border },
+    elevation,
+    button,
     svgFont:
       textDef.families?.['400'] ??
       (Platform.OS === 'web' ? 'system-ui, -apple-system, Roboto, sans-serif' : undefined),
