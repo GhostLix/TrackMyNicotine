@@ -42,12 +42,12 @@ export function ProductPicker({ selected, onSelect }: Props) {
             {selected.name}
           </Text>
         </View>
+        <ScoreBadge score={selected.score} />
         <Ionicons
           name={anchor ? 'chevron-up' : 'chevron-down'}
           size={20}
           color={Colors.primary}
         />
-        <ScoreBadge score={selected.score} />
       </Pressable>
 
       <Modal visible={anchor !== null} transparent animationType="fade" onRequestClose={close}>

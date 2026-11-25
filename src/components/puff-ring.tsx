@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 import { Colors, Shadow } from '@/constants/theme';
 import { formatMg } from '@/lib/nicotine';
@@ -33,12 +33,17 @@ export function PuffRing({ size, puffs, mgToday, limitMg, onPress }: Props) {
 
   const innerSize = size - STROKE * 2 - 28;
 
-  // Punto finale dell'arco rosso (angolo 0 = ore 12, senso orario) per disegnarne la testa arrotondata.
+  // Testa arrotondata dell'arco rosso: un SEMIcerchio rivolto in avanti (senso orario),
+  // così anche con pochissimo sforamento non si vede un cerchio intero che sporge indietro sul blu.
   const redAngle = red * 2 * Math.PI;
-  const redHead = {
-    x: center + radius * Math.sin(redAngle),
-    y: center - radius * Math.cos(redAngle),
-  };
+  const headR = STROKE / 2;
+  const hx = center + radius * Math.sin(redAngle);
+  const hy = center - radius * Math.cos(redAngle);
+  const rx = Math.sin(redAngle); // direzione radiale verso l'esterno
+  const ry = -Math.cos(redAngle);
+  const redHeadPath =
+    `M ${hx - headR * rx} ${hy - headR * ry} ` +
+    `A ${headR} ${headR} 0 0 0 ${hx + headR * rx} ${hy + headR * ry} Z`;
 
   const pressIn = () =>
     Animated.spring(scale, { toValue: 0.94, useNativeDriver: true, speed: 40 }).start();
@@ -88,7 +93,7 @@ export function PuffRing({ size, puffs, mgToday, limitMg, onPress }: Props) {
             />
             {/* Testa arrotondata come quella del blu. */}
             {red < 1 && (
-              <Circle cx={redHead.x} cy={redHead.y} r={STROKE / 2} fill={Colors.danger} />
+              <Path d={redHeadPath} fill={Colors.danger} />
             )}
           </>
         )}
