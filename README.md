@@ -54,3 +54,10 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+## TrackMyNicotine — note di sviluppo
+
+- Stack: Expo SDK 58 + TypeScript + Expo Router (tab JS), `react-native-svg` per anello e grafico, `AsyncStorage` per i dati (solo sul dispositivo).
+- Avvio su browser: `npm run web` → http://localhost:8081
+- I valori `mgPerPuff` e i punteggi A–E in `src/data/products.ts` sono **segnaposto** da sostituire con dati verificati.
+- Il grafico usa un modello semplice di decadimento esponenziale (emivita nicotina ~2h) in `src/lib/nicotine.ts`.
