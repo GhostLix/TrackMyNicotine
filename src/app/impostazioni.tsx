@@ -6,25 +6,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { DailyLimitEditor } from '@/components/daily-limit-editor';
 import { Spacing } from '@/constants/theme';
 import { useNicotine } from '@/store/nicotine-store';
-import { useDevSettings, useStyles, useTheme } from '@/theme/theme-provider';
-import { DEFAULT_DEV } from '@/theme/theme-provider';
-import {
-  DEV_GROUPS,
-  PRESETS,
-  STYLES,
-  TEXTS,
-  type DevGroupKey,
-  type OptionMeta,
-  type StyleId,
-  type TextId,
-  type Theme,
-} from '@/theme/themes';
+import { useAppearance, useStyles, useTheme } from '@/theme/theme-provider';
+import type { Appearance, Theme } from '@/theme/themes';
+
+type IconName = 'flag-outline' | 'contrast-outline' | 'trash-outline';
+
+const APPEARANCES: { id: Appearance; label: string; icon: 'sunny' | 'moon' }[] = [
+  { id: 'giorno', label: 'Giorno', icon: 'sunny' },
+  { id: 'notte', label: 'Notte', icon: 'moon' },
+];
 
 export default function ImpostazioniScreen() {
   const styles = useStyles(makeStyles);
   const t = useTheme();
   const { dailyLimitMg, setDailyLimit, resetAll, loaded } = useNicotine();
-  const { dev, setDev } = useDevSettings();
+  const { appearance, setAppearance } = useAppearance();
   const [saved, setSaved] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
 
@@ -32,6 +28,30 @@ export default function ImpostazioniScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <Text style={styles.title}>Impostazioni</Text>
+
+        <View style={styles.card}>
+          <SectionHeader icon="contrast-outline" title="Aspetto" />
+          <View style={styles.segments}>
+            {APPEARANCES.map(({ id, label, icon }) => {
+              const active = id === appearance;
+              return (
+                <Pressable
+                  key={id}
+                  onPress={() => setAppearance(id)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: active }}
+                  style={({ pressed }) => [styles.segment, active && styles.segmentActive, pressed && styles.pressed]}>
+                  <Ionicons
+                    name={active ? icon : (`${icon}-outline` as const)}
+                    size={20}
+                    color={active ? t.colors.primary : t.colors.textMuted}
+                  />
+                  <Text style={[styles.segmentText, active && styles.segmentTextActive]}>{label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
 
         <View style={styles.card}>
           <SectionHeader icon="flag-outline" title="Limite giornaliero" />
@@ -50,93 +70,6 @@ export default function ImpostazioniScreen() {
               }}
             />
           )}
-        </View>
-
-        <View style={styles.card}>
-          <SectionHeader icon="construct-outline" title="Impostazioni developer" />
-          <Text style={styles.cardBody}>
-            Prova le varianti di aspetto una per una: si applicano subito a tutta l’app.
-          </Text>
-
-          <View style={styles.group}>
-            <Text style={styles.groupLabel}>Proposte</Text>
-            <View style={styles.presets}>
-              {PRESETS.map((preset) => {
-                const active = (Object.keys(DEV_GROUPS) as DevGroupKey[]).every(
-                  (k) => dev[k] === preset.dev[k],
-                );
-                const colors = STYLES[preset.dev.style as StyleId].colors;
-                const fam = TEXTS[preset.dev.text as TextId].families;
-                return (
-                  <Pressable
-                    key={preset.name}
-                    onPress={() => setDev(preset.dev)}
-                    accessibilityRole="radio"
-                    accessibilityState={{ checked: active }}
-                    accessibilityLabel={`Proposta ${preset.name}`}
-                    style={({ pressed }) => [
-                      styles.preset,
-                      { backgroundColor: colors.background },
-                      active && { borderColor: colors.primary },
-                      pressed && styles.pressed,
-                    ]}>
-                    <View style={[styles.presetDot, { backgroundColor: colors.primary }]} />
-                    <Text
-                      style={[
-                        styles.presetName,
-                        { color: colors.text },
-                        fam ? { fontFamily: fam['800'] } : { fontWeight: '800' },
-                      ]}>
-                      {preset.name}
-                    </Text>
-                    <Text style={[styles.presetDescription, { color: colors.textMuted }]} numberOfLines={3}>
-                      {preset.description}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-
-          {(Object.keys(DEV_GROUPS) as DevGroupKey[]).map((key) => (
-            <OptionGroup
-              key={key}
-              label={DEV_GROUPS[key].label}
-              value={dev[key]}
-              options={DEV_GROUPS[key].options}
-              onChange={(v) => setDev({ [key]: v })}
-              renderExtra={
-                key === 'style'
-                  ? (id) => (
-                      <View style={styles.swatches}>
-                        {(['background', 'card', 'primary'] as const).map((c) => (
-                          <View
-                            key={c}
-                            style={[styles.swatch, { backgroundColor: STYLES[id as StyleId].colors[c] }]}
-                          />
-                        ))}
-                      </View>
-                    )
-                  : key === 'text'
-                    ? (id) => {
-                        const fam = TEXTS[id as TextId].families;
-                        return (
-                          <Text style={[styles.fontSample, fam ? { fontFamily: fam['700'] } : { fontWeight: '700' }]}>
-                            Aa 12
-                          </Text>
-                        );
-                      }
-                    : undefined
-              }
-            />
-          ))}
-
-          <Pressable
-            onPress={() => setDev(DEFAULT_DEV)}
-            style={({ pressed }) => [styles.linkButton, pressed && styles.pressed]}>
-            <Ionicons name="refresh" size={15} color={t.colors.primary} />
-            <Text style={styles.linkText}>Torna a tutte le varianti 1</Text>
-          </Pressable>
         </View>
 
         <View style={styles.card}>
@@ -179,13 +112,7 @@ export default function ImpostazioniScreen() {
   );
 }
 
-function SectionHeader({
-  icon,
-  title,
-}: {
-  icon: 'flag-outline' | 'construct-outline' | 'trash-outline';
-  title: string;
-}) {
+function SectionHeader({ icon, title }: { icon: IconName; title: string }) {
   const styles = useStyles(makeStyles);
   const t = useTheme();
   return (
@@ -194,57 +121,6 @@ function SectionHeader({
         <Ionicons name={icon} size={16} color={t.colors.primary} />
       </View>
       <Text style={styles.cardTitle}>{title}</Text>
-    </View>
-  );
-}
-
-function OptionGroup({
-  label,
-  value,
-  options,
-  onChange,
-  renderExtra,
-}: {
-  label: string;
-  value: number;
-  options: OptionMeta[];
-  onChange: (v: number) => void;
-  renderExtra?: (id: number) => React.ReactNode;
-}) {
-  const styles = useStyles(makeStyles);
-  const twoColumns = options.length === 4;
-  const threeColumns = options.length > 4;
-  return (
-    <View style={styles.group}>
-      <Text style={styles.groupLabel}>{label}</Text>
-      <View style={[styles.segments, (twoColumns || threeColumns) && styles.segmentsWrap]}>
-        {options.map((option, i) => {
-          const id = i + 1;
-          const active = id === value;
-          return (
-            <Pressable
-              key={id}
-              onPress={() => onChange(id)}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: active }}
-              accessibilityLabel={`${label}: ${id} ${option.name}`}
-              style={({ pressed }) => [
-                styles.segment,
-                twoColumns && styles.segmentHalf,
-                threeColumns && styles.segmentThird,
-                active && styles.segmentActive,
-                pressed && styles.pressed,
-              ]}>
-              <Text style={[styles.segmentNumber, active && styles.segmentTextActive]}>{id}</Text>
-              <Text style={[styles.segmentName, active && styles.segmentTextActive]} numberOfLines={1}>
-                {option.name}
-              </Text>
-              {renderExtra?.(id)}
-            </Pressable>
-          );
-        })}
-      </View>
-      <Text style={styles.groupDescription}>{options[value - 1]?.description}</Text>
     </View>
   );
 }
@@ -297,70 +173,18 @@ const makeStyles = (t: Theme) =>
       lineHeight: 19,
       color: t.colors.textMuted,
     },
-    group: {
-      gap: Spacing.sm,
-      paddingTop: Spacing.sm,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: t.colors.border,
-    },
-    groupLabel: {
-      ...t.text(12, '700'),
-      color: t.colors.textMuted,
-      textTransform: 'uppercase',
-      letterSpacing: 0.6,
-    },
     segments: {
       flexDirection: 'row',
       gap: Spacing.sm,
     },
-    presets: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: Spacing.sm,
-    },
-    preset: {
-      flexBasis: '47%',
-      flexGrow: 1,
-      gap: 4,
-      padding: 12,
-      borderRadius: t.radius.md,
-      borderWidth: 2,
-      borderColor: 'rgba(127, 127, 127, 0.25)',
-    },
-    presetDot: {
-      width: 22,
-      height: 22,
-      borderRadius: 11,
-      marginBottom: 4,
-    },
-    presetName: {
-      fontSize: 16,
-    },
-    presetDescription: {
-      fontSize: 12,
-      lineHeight: 16,
-    },
-    segmentsWrap: {
-      flexWrap: 'wrap',
-    },
-    segmentHalf: {
-      flexBasis: '47%',
-      flexGrow: 1,
-    },
-    segmentThird: {
-      flexBasis: '30%',
-      flexGrow: 0,
-      flex: 0,
-      width: '31.5%',
-    },
     segment: {
       flex: 1,
-      minWidth: 0,
+      flexDirection: 'row',
       alignItems: 'center',
-      gap: 2,
-      paddingVertical: 10,
-      paddingHorizontal: 6,
-      borderRadius: t.radius.md,
+      justifyContent: 'center',
+      gap: 8,
+      paddingVertical: 14,
+      borderRadius: t.button.radius,
       backgroundColor: t.colors.surface,
       borderWidth: 2,
       borderColor: 'transparent',
@@ -369,49 +193,12 @@ const makeStyles = (t: Theme) =>
       backgroundColor: t.colors.primarySoft,
       borderColor: t.colors.primary,
     },
-    segmentNumber: {
-      ...t.text(18, '800'),
+    segmentText: {
+      ...t.text(15, '700'),
       color: t.colors.textMuted,
-    },
-    segmentName: {
-      ...t.text(12, '600'),
-      color: t.colors.text,
     },
     segmentTextActive: {
       color: t.colors.primaryDark,
-    },
-    groupDescription: {
-      ...t.text(12, '400'),
-      lineHeight: 17,
-      color: t.colors.textMuted,
-    },
-    swatches: {
-      flexDirection: 'row',
-      gap: 3,
-      marginTop: 4,
-    },
-    swatch: {
-      width: 12,
-      height: 12,
-      borderRadius: 6,
-      borderWidth: 1,
-      borderColor: 'rgba(127, 127, 127, 0.35)',
-    },
-    fontSample: {
-      fontSize: 15,
-      color: t.colors.text,
-      marginTop: 2,
-    },
-    linkButton: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 6,
-      paddingVertical: 8,
-    },
-    linkText: {
-      ...t.text(13, '700'),
-      color: t.colors.primary,
     },
     confirmRow: {
       flexDirection: 'row',
@@ -426,8 +213,8 @@ const makeStyles = (t: Theme) =>
     },
     secondaryText: {
       ...t.text(15, '700'),
-      color: t.colors.text,
       ...t.button.label,
+      color: t.colors.text,
     },
     danger: {
       backgroundColor: t.colors.dangerSoft,
@@ -437,8 +224,8 @@ const makeStyles = (t: Theme) =>
     },
     dangerText: {
       ...t.text(15, '700'),
-      color: t.colors.danger,
       ...t.button.label,
+      color: t.colors.danger,
     },
     flex: {
       flex: 1,

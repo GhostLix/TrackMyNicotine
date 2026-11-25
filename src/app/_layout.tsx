@@ -5,13 +5,13 @@ import { useEffect } from 'react';
 
 import { TabBar } from '@/components/tab-bar';
 import { NicotineProvider, useNicotine } from '@/store/nicotine-store';
-import { ThemeProvider, useDevSettings, useTheme } from '@/theme/theme-provider';
+import { ThemeProvider, useAppearance, useTheme } from '@/theme/theme-provider';
 
 SplashScreen.preventAutoHideAsync();
 
 function AppTabs() {
   const { loaded } = useNicotine();
-  const { ready } = useDevSettings();
+  const { ready } = useAppearance();
   const t = useTheme();
 
   useEffect(() => {

@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
 import { StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
-import Svg, { Circle, Defs, Line, LinearGradient, Path, Rect, Stop, Text as SvgText } from 'react-native-svg';
+import Svg, { Circle, Line, Path, Text as SvgText } from 'react-native-svg';
 
 import { bodyNicotineSeries, type Puff } from '@/lib/nicotine';
-import { useDevSettings, useStyles, useTheme } from '@/theme/theme-provider';
+import { useStyles, useTheme } from '@/theme/theme-provider';
 import type { Theme } from '@/theme/themes';
 
 type Props = {
@@ -36,39 +36,18 @@ function formatHour(t: number): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-const HOUR = 60 * 60 * 1000;
-
-/** mg assunti in ciascuna delle ultime 24 ore (l'ultima barra è l'ora in corso). */
-function hourlyIntake(puffs: Puff[], now: number): { t: number; mg: number }[] {
-  const start = now - 24 * HOUR;
-  const buckets = Array.from({ length: 24 }, (_, i) => ({ t: start + i * HOUR, mg: 0 }));
-  for (const p of puffs) {
-    if (p.t <= start || p.t > now) continue;
-    const i = Math.min(23, Math.floor((p.t - start) / HOUR));
-    buckets[i].mg += p.mg;
-  }
-  return buckets;
-}
-
-/**
- * Grafico della Home in tre varianti (Impostazioni developer):
- * 1 area e 3 linea = nicotina stimata nel corpo; 2 barre = nicotina assunta ora per ora.
- */
+/** Nicotina stimata nel corpo nelle ultime 24 ore: linea essenziale con il punto attuale. */
 export function NicotineChart({ puffs, now }: Props) {
   const styles = useStyles(makeStyles);
   const t = useTheme();
   const [width, setWidth] = useState(0);
   const onLayout = (e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width);
 
-  const { dev } = useDevSettings();
-  const variant = dev.chart;
   const series = useMemo(() => bodyNicotineSeries(puffs, now), [puffs, now]);
-  const hourly = useMemo(() => hourlyIntake(puffs, now), [puffs, now]);
 
   const chart = useMemo(() => {
     if (width === 0) return null;
-    const maxVal =
-      variant === 2 ? Math.max(...hourly.map((b) => b.mg)) : Math.max(...series.map((p) => p.mg));
+    const maxVal = Math.max(...series.map((p) => p.mg));
     const yMax = niceMax(maxVal * 1.15);
     const plotW = width - PAD_LEFT - PAD_RIGHT;
     const plotH = HEIGHT - PAD_TOP - PAD_BOTTOM;
@@ -81,47 +60,30 @@ export function NicotineChart({ puffs, now }: Props) {
     const line = series
       .map((p, i) => `${i === 0 ? 'M' : 'L'}${x(p.t).toFixed(1)},${y(p.mg).toFixed(1)}`)
       .join(' ');
-    const baseY = PAD_TOP + plotH;
-    const area = `${line} L${x(now).toFixed(1)},${baseY} L${PAD_LEFT},${baseY} Z`;
 
     const yTicks = [0, 0.25, 0.5, 0.75, 1].map((f) => f * yMax);
     const xTicks = [0, 6, 12, 18, 24].map((h) => t0 + h * 60 * 60 * 1000);
 
-    const slot = plotW / 24;
-    const bars = hourly.map((b, i) => {
-      const h = Math.max(0, baseY - y(b.mg));
-      return { x: PAD_LEFT + i * slot + slot * 0.18, w: slot * 0.64, y: baseY - h, h, current: i === 23 };
-    });
     const last = series[series.length - 1];
 
-    return { line, area, yTicks, xTicks, x, y, baseY, bars, endX: x(last.t), endY: y(last.mg) };
-  }, [series, hourly, variant, width, now]);
+    return { line, yTicks, xTicks, x, y, endX: x(last.t), endY: y(last.mg) };
+  }, [series, width, now]);
 
   const current = series[series.length - 1].mg;
-  const total24 = hourly.reduce((sum, b) => sum + b.mg, 0);
 
   return (
     <View>
       <View style={styles.header}>
-        <Text style={styles.title}>{variant === 2 ? 'Nicotina assunta' : 'Nicotina nel corpo'}</Text>
+        <Text style={styles.title}>Nicotina nel corpo</Text>
         <Text style={styles.current}>
-          {(variant === 2 ? total24 : current).toFixed(2)}{' '}
-          <Text style={styles.currentUnit}>{variant === 2 ? 'mg in 24 h' : 'mg ora'}</Text>
+          {current.toFixed(2)} <Text style={styles.currentUnit}>mg ora</Text>
         </Text>
       </View>
-      <Text style={styles.subtitle}>
-        {variant === 2 ? 'Ora per ora, ultime 24 ore' : 'Stima delle ultime 24 ore'}
-      </Text>
+      <Text style={styles.subtitle}>Stima delle ultime 24 ore</Text>
 
       <View style={{ height: HEIGHT }} onLayout={onLayout}>
         {chart && (
           <Svg width={width} height={HEIGHT}>
-            <Defs>
-              <LinearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor={t.colors.primary} stopOpacity={0.28} />
-                <Stop offset="1" stopColor={t.colors.primary} stopOpacity={0.02} />
-              </LinearGradient>
-            </Defs>
 
             {chart.yTicks.map((v) => (
               <Line
@@ -132,7 +94,7 @@ export function NicotineChart({ puffs, now }: Props) {
                 y2={chart.y(v)}
                 stroke={t.colors.border}
                 strokeWidth={1}
-                strokeDasharray={variant === 3 ? '3 5' : undefined}
+                strokeDasharray="3 5"
               />
             ))}
             {chart.yTicks.map((v) => (
@@ -148,29 +110,7 @@ export function NicotineChart({ puffs, now }: Props) {
               </SvgText>
             ))}
 
-            {variant === 1 && (
-              <>
-                <Path d={chart.area} fill="url(#fill)" />
-                <Path d={chart.line} stroke={t.colors.primary} strokeWidth={2.5} fill="none" />
-              </>
-            )}
-            {variant === 2 &&
-              chart.bars.map((b, i) =>
-                b.h > 0 ? (
-                  <Rect
-                    key={`b${i}`}
-                    x={b.x}
-                    y={b.y}
-                    width={b.w}
-                    height={b.h}
-                    rx={Math.min(4, b.w / 2)}
-                    fill={t.colors.primary}
-                    fillOpacity={b.current ? 1 : 0.55}
-                  />
-                ) : null,
-              )}
-            {variant === 3 && (
-              <>
+            <>
                 <Path
                   d={chart.line}
                   stroke={t.colors.primary}
@@ -181,8 +121,7 @@ export function NicotineChart({ puffs, now }: Props) {
                 />
                 <Circle cx={chart.endX} cy={chart.endY} r={9} fill={t.colors.primary} fillOpacity={0.2} />
                 <Circle cx={chart.endX} cy={chart.endY} r={4.5} fill={t.colors.primary} />
-              </>
-            )}
+            </>
 
             {chart.xTicks.map((tick, i) => (
               <SvgText

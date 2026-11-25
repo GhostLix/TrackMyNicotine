@@ -8,30 +8,22 @@ import { DraggableList } from '@/components/draggable-list';
 import { ProductEditor } from '@/components/product-editor';
 import { ScoreBadge } from '@/components/score-badge';
 import { Spacing } from '@/constants/theme';
-import { CATEGORY_LABELS, CATEGORY_ORDER, type Category } from '@/data/nicotine-model';
+import { CATEGORY_LABELS, CATEGORY_ORDER } from '@/data/nicotine-model';
 import {
   CATALOG,
   formatMgPerPuff,
   SCORE_THRESHOLDS,
   scoreFor,
   type Product,
-  type Score,
 } from '@/data/products';
 import { useNicotine } from '@/store/nicotine-store';
-import { useDevSettings, useStyles, useTheme } from '@/theme/theme-provider';
+import { useStyles, useTheme } from '@/theme/theme-provider';
 import type { Theme } from '@/theme/themes';
 
 type EditorState = { open: false } | { open: true; product?: Product };
 
 const DEFAULT_ROW_HEIGHT = 64;
 
-const SCORE_LABELS: Record<Score, string> = {
-  A: 'Nicotina molto bassa',
-  B: 'Nicotina bassa',
-  C: 'Nicotina media',
-  D: 'Nicotina alta',
-  E: 'Nicotina molto alta',
-};
 
 const noWebOutline = Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : null;
 
@@ -57,9 +49,6 @@ export default function ProdottiScreen() {
   const [query, setQuery] = useState('');
   const [lastWarning, setLastWarning] = useState(false);
   const [dragging, setDragging] = useState(false);
-  const [filter, setFilter] = useState<Category | 'all'>('all');
-  const { dev } = useDevSettings();
-  const layout = dev.products;
 
   const enabled = useMemo(() => new Set(enabledProductIds), [enabledProductIds]);
   const q = normalize(query.trim());
@@ -144,8 +133,7 @@ export default function ProdottiScreen() {
             )}
           </View>
           <Text style={styles.rowDetail} numberOfLines={1}>
-            {layout === 3 ? `${CATEGORY_LABELS[product.category]} · ` : ''}
-            {product.detail && layout !== 3 ? `${product.detail} · ` : ''}
+            {product.detail ? `${product.detail} · ` : ''}
             {formatMgPerPuff(product.mgPerPuff)} mg/tiro
           </Text>
         </View>
@@ -164,28 +152,15 @@ export default function ProdottiScreen() {
     );
   };
 
-  // Tutti i prodotti (catalogo + tuoi) in ordine di nicotina crescente, raggruppati secondo la variante scelta.
+  // Tutti i prodotti (catalogo + tuoi) per tipo, in ordine di nicotina crescente.
   const all = [...customProducts, ...CATALOG]
     .filter(matches)
     .sort((x, y) => x.mgPerPuff - y.mgPerPuff || x.name.localeCompare(y.name, 'it'));
-  const countByCategory = (c: Category) => all.filter((p) => p.category === c).length;
-  const sections: { key: string; title: ReactNode; items: Product[] }[] =
-    layout === 3
-      ? SCORE_THRESHOLDS.map(({ score }) => ({
-          key: score,
-          title: (
-            <View style={styles.scoreTitle}>
-              <ScoreBadge score={score} />
-              <Text style={styles.categoryName}>{SCORE_LABELS[score]}</Text>
-            </View>
-          ),
-          items: all.filter((p) => scoreFor(p.mgPerPuff) === score),
-        }))
-      : CATEGORY_ORDER.filter((c) => layout !== 2 || filter === 'all' || filter === c).map((c) => ({
-          key: c,
-          title: <Text style={styles.categoryName}>{CATEGORY_LABELS[c]}</Text>,
-          items: all.filter((p) => p.category === c),
-        }));
+  const sections = CATEGORY_ORDER.map((c) => ({
+    key: c,
+    title: <Text style={styles.categoryName}>{CATEGORY_LABELS[c]}</Text>,
+    items: all.filter((p) => p.category === c),
+  }));
   const visibleSections = sections.filter((x) => x.items.length > 0);
   const nothingFound = visibleSections.length === 0;
 
@@ -245,31 +220,6 @@ export default function ProdottiScreen() {
             </Pressable>
           )}
         </View>
-
-        {layout === 2 && (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.chips}>
-            {(['all', ...CATEGORY_ORDER] as const).map((c) => {
-              const active = filter === c;
-              const count = c === 'all' ? all.length : countByCategory(c);
-              return (
-                <Pressable
-                  key={c}
-                  onPress={() => setFilter(c)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: active }}
-                  style={({ pressed }) => [styles.chip, active && styles.chipActive, pressed && styles.pressed]}>
-                  <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                    {c === 'all' ? 'Tutti' : CATEGORY_LABELS[c]}
-                  </Text>
-                  <Text style={[styles.chipCount, active && styles.chipTextActive]}>{count}</Text>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        )}
 
         {nothingFound && (
           <Pressable
@@ -468,40 +418,6 @@ const makeStyles = (t: Theme) =>
       ...t.text(18, '800'),
       color: t.colors.text,
       paddingHorizontal: 4,
-    },
-    scoreTitle: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: Spacing.sm,
-      paddingHorizontal: 4,
-    },
-    chips: {
-      gap: Spacing.sm,
-      paddingVertical: 2,
-    },
-    chip: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-      paddingHorizontal: 14,
-      paddingVertical: 9,
-      borderRadius: t.radius.pill,
-      backgroundColor: t.colors.card,
-      ...(t.shadow ? {} : { borderWidth: 1, borderColor: t.colors.border }),
-    },
-    chipActive: {
-      backgroundColor: t.colors.primary,
-    },
-    chipText: {
-      ...t.text(13, '700'),
-      color: t.colors.text,
-    },
-    chipCount: {
-      ...t.text(12, '600'),
-      color: t.colors.textMuted,
-    },
-    chipTextActive: {
-      color: t.colors.onPrimary,
     },
     defaultRow: {
       height: DEFAULT_ROW_HEIGHT,
