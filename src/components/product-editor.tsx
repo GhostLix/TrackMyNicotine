@@ -59,24 +59,26 @@ export function ProductEditor({ visible, product, onSave, onDelete, onClose }: P
   );
 }
 
-type AiState =
-  | { status: 'idle' }
-  | { status: 'loading' }
-  | { status: 'done'; outcome: AiLookupOutcome }
-  | { status: 'error'; message: string };
+/**
+ * Flusso in due passi:
+ * 1. modulo con nome, tipo e — facoltativa — la nicotina per tiro;
+ * 2. se la nicotina è vuota, l'AI cerca le specifiche e mostra cosa ha trovato prima di salvare.
+ */
+type Step =
+  | { kind: 'form'; message?: string }
+  | { kind: 'searching' }
+  | { kind: 'review'; outcome: AiLookupOutcome };
 
 function EditorBody({ product, onSave, onDelete, onClose }: Omit<Props, 'visible'>) {
   const styles = useStyles(makeStyles);
   const t = useTheme();
   const [name, setName] = useState(product?.name ?? '');
-  const [detail, setDetail] = useState(product?.detail ?? '');
-  const [category, setCategory] = useState<Category>(product?.category ?? 'usa_e_getta');
+  const [category, setCategory] = useState<Category | null>(product?.category ?? null);
   const [mgText, setMgText] = useState(product ? String(product.mgPerPuff) : '');
+  const [detail, setDetail] = useState(product?.detail ?? '');
+  const [step, setStep] = useState<Step>({ kind: 'form' });
   const [confirmDelete, setConfirmDelete] = useState(false);
-
   const [aiAvailable, setAiAvailable] = useState<boolean | null>(null);
-  const [aiQuery, setAiQuery] = useState(product?.name ?? '');
-  const [ai, setAi] = useState<AiState>({ status: 'idle' });
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -88,278 +90,277 @@ function EditorBody({ product, onSave, onDelete, onClose }: Omit<Props, 'visible
     };
   }, []);
 
+  const trimmedName = name.trim();
+  const mgEmpty = mgText.trim() === '';
   const mg = Number(mgText.replace(',', '.'));
-  const mgValid = mgText.trim() !== '' && Number.isFinite(mg) && mg >= 0 && mg <= MAX_MG_PER_PUFF;
-  const nameValid = name.trim().length > 0;
-  const valid = mgValid && nameValid;
+  const mgValid = !mgEmpty && Number.isFinite(mg) && mg >= 0 && mg <= MAX_MG_PER_PUFF;
+  const useAi = mgEmpty && aiAvailable === true;
 
-  const save = () => {
-    if (!valid) return;
-    onSave({ name: name.trim(), detail: detail.trim(), mgPerPuff: mg, category });
+  // Con la nicotina inserita a mano serve anche il tipo; con l'AI il tipo lo trova lei.
+  const canSubmit = trimmedName !== '' && (useAi || (mgValid && category !== null));
+  const missing =
+    trimmedName === ''
+      ? 'Scrivi il nome del prodotto.'
+      : mgEmpty && aiAvailable === false
+        ? 'Inserisci la nicotina per tiro: la ricerca AI qui non è disponibile.'
+        : !mgEmpty && !mgValid
+          ? `La nicotina per tiro deve essere tra 0 e ${MAX_MG_PER_PUFF} mg.`
+          : !useAi && category === null
+            ? 'Scegli il tipo di prodotto.'
+            : null;
+
+  const save = (input: ProductInput) => {
+    onSave(input);
   };
 
-  const askAi = async () => {
+  const submit = async () => {
+    if (!canSubmit) return;
+    if (!useAi) {
+      save({ name: trimmedName, category: category!, mgPerPuff: mg, detail });
+      return;
+    }
     abortRef.current?.abort();
     const ctl = new AbortController();
     abortRef.current = ctl;
-    setAi({ status: 'loading' });
+    setStep({ kind: 'searching' });
+    const query = category ? `${trimmedName} (${CATEGORY_LABELS[category]})` : trimmedName;
     try {
-      const outcome = await lookupNicotine(aiQuery, ctl.signal);
-      if (!ctl.signal.aborted) setAi({ status: 'done', outcome });
+      const outcome = await lookupNicotine(query, ctl.signal);
+      if (ctl.signal.aborted) return;
+      if (!outcome.result.found || outcome.mgPerPuff === null) {
+        setStep({
+          kind: 'form',
+          message:
+            'L’AI non ha trovato dati affidabili su questo prodotto. Controlla il nome oppure inserisci la nicotina a mano.',
+        });
+        return;
+      }
+      setStep({ kind: 'review', outcome });
     } catch (e) {
       if (ctl.signal.aborted) return;
-      setAi({
-        status: 'error',
+      setStep({
+        kind: 'form',
         message: e instanceof AiLookupError ? e.message : 'Ricerca non riuscita, riprova.',
       });
     }
   };
 
-  const applyAi = (outcome: AiLookupOutcome) => {
-    const specs = specsFromResult(outcome.result);
-    if (!specs || outcome.mgPerPuff === null) return;
-    setName(outcome.result.name || aiQuery.trim());
-    setCategory(outcome.result.category);
-    setDetail(describeSpecs(specs));
-    setMgText(String(outcome.mgPerPuff));
-    setAi({ status: 'idle' });
+  const cancelSearch = () => {
+    abortRef.current?.abort();
+    setStep({ kind: 'form' });
   };
 
-  return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.backdrop}>
-      <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Chiudi" />
-      <View style={styles.card}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <Text style={styles.title}>{product ? 'Modifica prodotto' : 'Nuovo prodotto'}</Text>
-
-          {aiAvailable !== false && (
-            <View style={styles.aiBox}>
-              <View style={styles.aiHeader}>
-                <Ionicons name="sparkles" size={16} color={t.colors.primary} />
-                <Text style={styles.aiTitle}>Non sai quanta nicotina contiene?</Text>
-              </View>
-              <Text style={styles.aiBody}>Scrivi il nome del prodotto: l’AI cerca le specifiche per te.</Text>
-              <View style={styles.aiRow}>
-                <TextInput
-                  value={aiQuery}
-                  onChangeText={setAiQuery}
-                  placeholder="Es. Elf Bar 600 mirtillo"
-                  placeholderTextColor={t.colors.textMuted}
-                  style={[styles.input, styles.flex, noWebOutline]}
-                  maxLength={120}
-                  returnKeyType="search"
-                  onSubmitEditing={askAi}
-                  accessibilityLabel="Prodotto da cercare con l'AI"
-                />
-                <Pressable
-                  onPress={askAi}
-                  disabled={aiQuery.trim() === '' || ai.status === 'loading' || aiAvailable === null}
-                  accessibilityRole="button"
-                  accessibilityLabel="Cerca con l'AI"
-                  style={({ pressed }) => [
-                    styles.aiButton,
-                    (aiQuery.trim() === '' || ai.status === 'loading' || aiAvailable === null) &&
-                      styles.disabled,
-                    pressed && styles.pressed,
-                  ]}>
-                  {ai.status === 'loading' ? (
-                    <ActivityIndicator size="small" color={t.colors.onPrimary} />
-                  ) : (
-                    <Text style={styles.aiButtonText}>Cerca</Text>
-                  )}
-                </Pressable>
-              </View>
-
-              {ai.status === 'loading' && (
-                <Text style={styles.aiBody}>Sto cercando… può volerci qualche secondo.</Text>
-              )}
-              {ai.status === 'error' && <Text style={[styles.aiBody, styles.error]}>{ai.message}</Text>}
-              {ai.status === 'done' && <AiResultCard outcome={ai.outcome} onApply={applyAi} />}
-            </View>
-          )}
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Nome</Text>
-            <TextInput
-              value={name}
-              onChangeText={setName}
-              placeholder="Es. Pod alla menta"
-              placeholderTextColor={t.colors.textMuted}
-              style={[styles.input, noWebOutline]}
-              maxLength={60}
-              accessibilityLabel="Nome del prodotto"
-            />
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Tipo</Text>
-            <View style={styles.chips}>
-              {CATEGORY_ORDER.map((c) => {
-                const active = c === category;
-                return (
-                  <Pressable
-                    key={c}
-                    onPress={() => setCategory(c)}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                    style={[styles.chip, active && styles.chipActive]}>
-                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                      {CATEGORY_LABELS[c]}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Descrizione (facoltativa)</Text>
-            <TextInput
-              value={detail}
-              onChangeText={setDetail}
-              placeholder="Es. 12 mg/ml"
-              placeholderTextColor={t.colors.textMuted}
-              style={[styles.input, noWebOutline]}
-              maxLength={60}
-              accessibilityLabel="Descrizione del prodotto"
-            />
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>Nicotina per tiro</Text>
-            <View style={styles.mgRow}>
-              <TextInput
-                value={mgText}
-                onChangeText={setMgText}
-                placeholder="0.05"
-                placeholderTextColor={t.colors.textMuted}
-                keyboardType="decimal-pad"
-                style={[styles.input, styles.mgInput, noWebOutline]}
-                accessibilityLabel="Milligrammi di nicotina per tiro"
-              />
-              <Text style={styles.unit}>mg/tiro</Text>
-              {mgValid && <ScoreBadge score={scoreFor(mg)} />}
-            </View>
-            <Text style={[styles.help, mgText !== '' && !mgValid && styles.error]}>
-              {mgText !== '' && !mgValid
-                ? `Inserisci un valore tra 0 e ${MAX_MG_PER_PUFF} mg.`
-                : 'Nicotina assorbita in un tiro. Indicativamente: sigaretta ~0.1, usa e getta 20 mg/ml ~0.04.'}
-            </Text>
-          </View>
-
-          <Pressable
-            onPress={save}
-            disabled={!valid}
-            style={({ pressed }) => [styles.primary, !valid && styles.disabled, pressed && styles.pressed]}>
-            <Text style={styles.primaryText}>{product ? 'Salva modifiche' : 'Aggiungi prodotto'}</Text>
-          </Pressable>
-
-          {onDelete &&
-            (confirmDelete ? (
-              <View style={styles.confirmRow}>
-                <Pressable
-                  onPress={() => setConfirmDelete(false)}
-                  style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}>
-                  <Text style={styles.secondaryText}>Annulla</Text>
-                </Pressable>
-                <Pressable
-                  onPress={onDelete}
-                  style={({ pressed }) => [styles.danger, styles.flex, pressed && styles.pressed]}>
-                  <Text style={styles.dangerText}>Conferma eliminazione</Text>
-                </Pressable>
-              </View>
-            ) : (
-              <Pressable
-                onPress={() => setConfirmDelete(true)}
-                style={({ pressed }) => [styles.danger, pressed && styles.pressed]}>
-                <Text style={styles.dangerText}>Elimina prodotto</Text>
-              </Pressable>
-            ))}
-
-          <Pressable onPress={onClose} hitSlop={8} style={styles.cancel}>
-            <Text style={styles.cancelText}>Chiudi</Text>
-          </Pressable>
-        </ScrollView>
-      </View>
-    </KeyboardAvoidingView>
+  const header = (
+    <View style={styles.header}>
+      <Text style={styles.title}>
+        {step.kind === 'review' ? 'Ecco cosa ho trovato' : product ? 'Modifica prodotto' : 'Nuovo prodotto'}
+      </Text>
+      <Pressable onPress={onClose} hitSlop={10} accessibilityLabel="Chiudi" style={styles.close}>
+        <Ionicons name="close" size={20} color={t.colors.textMuted} />
+      </Pressable>
+    </View>
   );
-}
 
-function AiResultCard({
-  outcome,
-  onApply,
-}: {
-  outcome: AiLookupOutcome;
-  onApply: (o: AiLookupOutcome) => void;
-}) {
-  const styles = useStyles(makeStyles);
-  const t = useTheme();
-  const { result, mgPerPuff, webSearch } = outcome;
-  const specs = specsFromResult(result);
-
-  if (!result.found) {
-    return (
-      <View style={styles.aiResult}>
-        <Text style={styles.aiResultName}>Prodotto non trovato</Text>
-        <Text style={styles.aiBody}>
-          {result.notes || 'Prova con il nome esatto riportato sulla confezione.'}
-        </Text>
+  let body: React.ReactNode;
+  if (step.kind === 'searching') {
+    body = (
+      <View style={styles.searching}>
+        <View style={styles.searchingIcon}>
+          <ActivityIndicator color={t.colors.primary} />
+        </View>
+        <Text style={styles.searchingTitle}>Cerco “{trimmedName}”…</Text>
+        <Text style={styles.muted}>L’AI sta cercando le specifiche del prodotto. Può volerci qualche secondo.</Text>
+        <Pressable onPress={cancelSearch} hitSlop={8} style={styles.textButton}>
+          <Text style={styles.textButtonLabel}>Annulla</Text>
+        </Pressable>
       </View>
+    );
+  } else if (step.kind === 'review') {
+    const { result, mgPerPuff, webSearch } = step.outcome;
+    const specs = specsFromResult(result)!;
+    const mgFound = mgPerPuff!;
+    body = (
+      <>
+        <View style={styles.resultCard}>
+          <View style={styles.resultTop}>
+            <ScoreBadge score={scoreFor(mgFound)} size="lg" />
+            <View style={styles.flex}>
+              <Text style={styles.resultName}>{trimmedName}</Text>
+              <Text style={styles.muted}>
+                {CATEGORY_LABELS[result.category]} · {describeSpecs(specs)}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.resultMgRow}>
+            <Text style={styles.resultMg}>≈ {formatMgPerPuff(mgFound)}</Text>
+            <Text style={styles.unit}>mg di nicotina per tiro</Text>
+          </View>
+          {result.name !== '' && result.name.toLowerCase() !== trimmedName.toLowerCase() && (
+            <Text style={styles.muted}>Riconosciuto come: {result.name}</Text>
+          )}
+          {result.notes !== '' && <Text style={styles.muted}>{result.notes}</Text>}
+          <View style={styles.metaRow}>
+            <View style={[styles.confidence, result.confidence === 'bassa' && styles.confidenceLow]}>
+              <Text style={[styles.confidenceText, result.confidence === 'bassa' && styles.confidenceTextLow]}>
+                Affidabilità {result.confidence}
+              </Text>
+            </View>
+            {!webSearch && <Text style={styles.metaNote}>senza ricerca web</Text>}
+          </View>
+          {result.sources.map((s) => (
+            <Pressable key={s.url} onPress={() => Linking.openURL(s.url)} accessibilityRole="link" style={styles.source}>
+              <Ionicons name="open-outline" size={13} color={t.colors.primary} />
+              <Text style={styles.sourceText} numberOfLines={1}>
+                {s.title}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Pressable
+          onPress={() =>
+            save({
+              name: trimmedName,
+              category: result.category,
+              mgPerPuff: mgFound,
+              detail: describeSpecs(specs),
+            })
+          }
+          style={({ pressed }) => [styles.primary, pressed && styles.pressed]}>
+          <Text style={styles.primaryText}>{product ? 'Salva modifiche' : 'Aggiungi prodotto'}</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => {
+            // Riporta al modulo con i valori trovati, da correggere a mano.
+            setCategory(result.category);
+            setMgText(String(mgFound));
+            setDetail(describeSpecs(specs));
+            setStep({ kind: 'form' });
+          }}
+          style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}>
+          <Text style={styles.secondaryText}>Correggi a mano</Text>
+        </Pressable>
+      </>
+    );
+  } else {
+    body = (
+      <>
+        <View style={styles.field}>
+          <Text style={styles.label}>Nome</Text>
+          <TextInput
+            value={name}
+            onChangeText={(v) => {
+              setName(v);
+              if (step.kind === 'form' && step.message) setStep({ kind: 'form' });
+            }}
+            placeholder="Es. Elf Bar 600 Mirtillo"
+            placeholderTextColor={t.colors.textMuted}
+            style={[styles.input, noWebOutline]}
+            maxLength={60}
+            autoFocus={!product}
+            accessibilityLabel="Nome del prodotto"
+          />
+        </View>
+
+        <View style={styles.field}>
+          <Text style={styles.label}>
+            Tipo{useAi ? <Text style={styles.optional}>  facoltativo</Text> : null}
+          </Text>
+          <View style={styles.chips}>
+            {CATEGORY_ORDER.map((c) => {
+              const active = c === category;
+              return (
+                <Pressable
+                  key={c}
+                  onPress={() => setCategory(active ? null : c)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: active }}
+                  style={[styles.chip, active && styles.chipActive]}>
+                  <Text style={[styles.chipText, active && styles.chipTextActive]}>{CATEGORY_LABELS[c]}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={styles.field}>
+          <Text style={styles.label}>
+            Nicotina per tiro<Text style={styles.optional}>  facoltativa</Text>
+          </Text>
+          <View style={styles.mgRow}>
+            <TextInput
+              value={mgText}
+              onChangeText={(v) => {
+                setMgText(v);
+                // Le specifiche trovate dall'AI non valgono più per un valore scritto a mano.
+                setDetail('');
+                if (step.kind === 'form' && step.message) setStep({ kind: 'form' });
+              }}
+              placeholder={aiAvailable === false ? '0.05' : 'La cerca l’AI'}
+              placeholderTextColor={t.colors.textMuted}
+              keyboardType="decimal-pad"
+              style={[styles.input, styles.mgInput, noWebOutline]}
+              accessibilityLabel="Milligrammi di nicotina per tiro"
+            />
+            <Text style={styles.unit}>mg</Text>
+            {mgValid && <ScoreBadge score={scoreFor(mg)} />}
+          </View>
+          <Text style={styles.help}>
+            {aiAvailable === false
+              ? 'Indicativamente: sigaretta ~0.1, usa e getta 20 mg/ml ~0.04.'
+              : 'Non la sai? Lasciala vuota: quando salvi la cerca l’AI.'}
+          </Text>
+        </View>
+
+        {step.message && (
+          <View style={styles.notice}>
+            <Ionicons name="information-circle" size={18} color={t.colors.danger} />
+            <Text style={styles.noticeText}>{step.message}</Text>
+          </View>
+        )}
+
+        <Pressable
+          onPress={submit}
+          disabled={!canSubmit}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.primary, !canSubmit && styles.disabled, pressed && styles.pressed]}>
+          {useAi && <Ionicons name="sparkles" size={17} color={t.colors.onPrimary} />}
+          <Text style={styles.primaryText}>
+            {useAi ? 'Aggiungi e cerca con l’AI' : product ? 'Salva modifiche' : 'Aggiungi prodotto'}
+          </Text>
+        </Pressable>
+        {missing && trimmedName !== '' && <Text style={styles.missing}>{missing}</Text>}
+
+        {onDelete &&
+          (confirmDelete ? (
+            <View style={styles.confirmRow}>
+              <Text style={[styles.muted, styles.flex]}>Eliminare questo prodotto?</Text>
+              <Pressable onPress={() => setConfirmDelete(false)} hitSlop={8} style={styles.textButton}>
+                <Text style={styles.textButtonLabel}>No</Text>
+              </Pressable>
+              <Pressable onPress={onDelete} hitSlop={8} style={styles.textButton}>
+                <Text style={[styles.textButtonLabel, styles.dangerLabel]}>Sì, elimina</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable onPress={() => setConfirmDelete(true)} hitSlop={8} style={styles.textButton}>
+              <Text style={[styles.textButtonLabel, styles.dangerLabel]}>Elimina prodotto</Text>
+            </Pressable>
+          ))}
+      </>
     );
   }
 
   return (
-    <View style={styles.aiResult}>
-      <View style={styles.aiResultTop}>
-        <View style={styles.flex}>
-          <Text style={styles.aiResultName}>{result.name}</Text>
-          <Text style={styles.aiBody}>
-            {CATEGORY_LABELS[result.category]}
-            {specs ? ` · ${describeSpecs(specs)}` : ''}
-          </Text>
-        </View>
-        {mgPerPuff !== null && <ScoreBadge score={scoreFor(mgPerPuff)} />}
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.backdrop}>
+      <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Chiudi" />
+      <View style={styles.card}>
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          {header}
+          {body}
+        </ScrollView>
       </View>
-
-      {mgPerPuff !== null ? (
-        <Text style={styles.aiMg}>
-          ≈ {formatMgPerPuff(mgPerPuff)} <Text style={styles.unit}>mg per tiro (stima)</Text>
-        </Text>
-      ) : (
-        <Text style={[styles.aiBody, styles.error]}>
-          Specifiche insufficienti per stimare la nicotina per tiro.
-        </Text>
-      )}
-
-      {result.notes !== '' && <Text style={styles.aiBody}>{result.notes}</Text>}
-      <Text style={styles.aiMeta}>
-        Affidabilità {result.confidence}
-        {webSearch ? '' : ' · senza ricerca web, dalla conoscenza dell’AI'}
-      </Text>
-
-      {result.sources.map((s) => (
-        <Pressable
-          key={s.url}
-          onPress={() => Linking.openURL(s.url)}
-          accessibilityRole="link"
-          style={styles.source}>
-          <Ionicons name="open-outline" size={13} color={t.colors.primary} />
-          <Text style={styles.sourceText} numberOfLines={1}>
-            {s.title}
-          </Text>
-        </Pressable>
-      ))}
-
-      {mgPerPuff !== null && (
-        <Pressable
-          onPress={() => onApply(outcome)}
-          style={({ pressed }) => [styles.applyButton, pressed && styles.pressed]}>
-          <Text style={styles.applyText}>Usa questi valori</Text>
-        </Pressable>
-      )}
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -381,134 +382,69 @@ const makeStyles = (t: Theme) =>
     },
     content: {
       padding: Spacing.lg,
-      gap: Spacing.md,
+      gap: Spacing.md + 4,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: Spacing.sm,
     },
     title: {
-      ...t.text(20, '800'),
+      ...t.text(22, '800'),
       color: t.colors.text,
-    },
-    aiBox: {
-      backgroundColor: t.colors.primarySoft,
-      borderRadius: t.radius.md,
-      padding: Spacing.md,
-      gap: Spacing.sm,
-    },
-    aiHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 6,
-    },
-    aiTitle: {
-      ...t.text(14, '700'),
-      color: t.colors.primaryDark,
-    },
-    aiBody: {
-      ...t.text(12, '400'),
-      lineHeight: 17,
-      color: t.colors.textMuted,
-    },
-    aiRow: {
-      flexDirection: 'row',
-      gap: Spacing.sm,
-    },
-    aiButton: {
-      backgroundColor: t.colors.primary,
-      borderRadius: t.button.radius,
-      paddingHorizontal: Spacing.md,
-      justifyContent: 'center',
-      minWidth: 72,
-      alignItems: 'center',
-    },
-    aiButtonText: {
-      color: t.colors.onPrimary,
-      ...t.weight('700'),
-      ...t.button.label,
-    },
-    aiResult: {
-      backgroundColor: t.colors.card,
-      borderRadius: t.radius.md,
-      padding: Spacing.md,
-      gap: 6,
-    },
-    aiResultTop: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: Spacing.sm,
-    },
-    aiResultName: {
-      ...t.text(15, '700'),
-      color: t.colors.text,
-    },
-    aiMg: {
-      ...t.text(20, '800'),
-      color: t.colors.text,
-    },
-    aiMeta: {
-      ...t.text(11, '400'),
-      color: t.colors.textMuted,
-      fontStyle: 'italic',
-    },
-    source: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-    },
-    sourceText: {
       flex: 1,
-      ...t.text(12, '400'),
-      color: t.colors.primary,
     },
-    applyButton: {
-      marginTop: 4,
-      borderRadius: t.button.radius,
-      borderWidth: 1.5,
-      borderColor: t.colors.primary,
-      paddingVertical: 10,
+    close: {
+      width: 34,
+      height: 34,
+      borderRadius: 17,
+      backgroundColor: t.colors.surface,
       alignItems: 'center',
-    },
-    applyText: {
-      color: t.colors.primary,
-      ...t.weight('700'),
-      ...t.button.label,
+      justifyContent: 'center',
     },
     field: {
-      gap: 6,
+      gap: 8,
     },
     label: {
-      ...t.text(12, '700'),
+      ...t.text(14, '700'),
+      color: t.colors.text,
+    },
+    optional: {
+      ...t.text(12, '500'),
       color: t.colors.textMuted,
-      textTransform: 'uppercase',
-      letterSpacing: 0.5,
     },
     input: {
-      backgroundColor: t.colors.background,
+      ...t.text(16, '600'),
+      backgroundColor: t.colors.surface,
       borderRadius: t.radius.md,
       paddingHorizontal: Spacing.md,
-      paddingVertical: 12,
-      ...t.text(16, '600'),
+      paddingVertical: 14,
       color: t.colors.text,
       minWidth: 0,
     },
     chips: {
       flexDirection: 'row',
       flexWrap: 'wrap',
-      gap: 6,
+      gap: 8,
     },
     chip: {
-      paddingHorizontal: 12,
-      paddingVertical: 8,
-      borderRadius: t.radius.pill,
-      backgroundColor: t.colors.background,
+      paddingHorizontal: 14,
+      paddingVertical: 9,
+      borderRadius: t.button.radius,
+      backgroundColor: t.colors.surface,
+      borderWidth: 1.5,
+      borderColor: 'transparent',
     },
     chipActive: {
-      backgroundColor: t.colors.primary,
+      backgroundColor: t.colors.primarySoft,
+      borderColor: t.colors.primary,
     },
     chipText: {
       ...t.text(13, '600'),
       color: t.colors.text,
     },
     chipTextActive: {
-      color: t.colors.onPrimary,
+      color: t.colors.primaryDark,
     },
     mgRow: {
       flexDirection: 'row',
@@ -517,7 +453,7 @@ const makeStyles = (t: Theme) =>
     },
     mgInput: {
       flex: 1,
-      ...t.text(20, '800'),
+      ...t.text(18, '700'),
     },
     unit: {
       ...t.text(14, '600'),
@@ -528,19 +464,44 @@ const makeStyles = (t: Theme) =>
       lineHeight: 17,
       color: t.colors.textMuted,
     },
-    error: {
-      color: t.colors.danger,
+    notice: {
+      flexDirection: 'row',
+      gap: 8,
+      padding: 12,
+      borderRadius: t.radius.md,
+      backgroundColor: t.colors.dangerSoft,
+    },
+    noticeText: {
+      ...t.text(13, '500'),
+      lineHeight: 18,
+      color: t.colors.text,
+      flex: 1,
     },
     primary: {
+      flexDirection: 'row',
+      gap: 8,
       backgroundColor: t.colors.primary,
       borderRadius: t.button.radius,
       paddingVertical: 16,
       alignItems: 'center',
+      justifyContent: 'center',
     },
     primaryText: {
-      color: t.colors.onPrimary,
       ...t.text(16, '700'),
       ...t.button.label,
+      color: t.colors.onPrimary,
+    },
+    secondary: {
+      borderRadius: t.button.radius,
+      paddingVertical: 14,
+      alignItems: 'center',
+      backgroundColor: t.colors.surface,
+      marginTop: -6,
+    },
+    secondaryText: {
+      ...t.text(15, '700'),
+      ...t.button.label,
+      color: t.colors.text,
     },
     disabled: {
       opacity: 0.4,
@@ -548,43 +509,115 @@ const makeStyles = (t: Theme) =>
     pressed: {
       opacity: 0.75,
     },
+    missing: {
+      ...t.text(12, '500'),
+      color: t.colors.textMuted,
+      textAlign: 'center',
+      marginTop: -8,
+    },
+    textButton: {
+      alignSelf: 'center',
+      paddingVertical: 4,
+      paddingHorizontal: 6,
+    },
+    textButtonLabel: {
+      ...t.text(14, '700'),
+      color: t.colors.textMuted,
+    },
+    dangerLabel: {
+      color: t.colors.danger,
+    },
     confirmRow: {
       flexDirection: 'row',
+      alignItems: 'center',
       gap: Spacing.sm,
-    },
-    secondary: {
-      backgroundColor: t.colors.background,
-      borderRadius: t.button.radius,
-      paddingVertical: 14,
-      paddingHorizontal: Spacing.md,
-      alignItems: 'center',
-    },
-    secondaryText: {
-      color: t.colors.text,
-      ...t.weight('700'),
-      ...t.button.label,
-    },
-    danger: {
-      backgroundColor: t.colors.dangerSoft,
-      borderRadius: t.button.radius,
-      paddingVertical: 14,
-      alignItems: 'center',
     },
     flex: {
       flex: 1,
       minWidth: 0,
     },
-    dangerText: {
-      color: t.colors.danger,
-      ...t.weight('700'),
-      ...t.button.label,
+    muted: {
+      ...t.text(13, '400'),
+      lineHeight: 18,
+      color: t.colors.textMuted,
     },
-    cancel: {
-      alignSelf: 'center',
+    searching: {
+      alignItems: 'center',
+      gap: Spacing.sm,
+      paddingVertical: Spacing.lg,
+    },
+    searchingIcon: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: t.colors.primarySoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 4,
+    },
+    searchingTitle: {
+      ...t.text(17, '700'),
+      color: t.colors.text,
+      textAlign: 'center',
+    },
+    resultCard: {
+      gap: 10,
+      padding: Spacing.md,
+      borderRadius: t.radius.md,
+      backgroundColor: t.colors.surface,
+    },
+    resultTop: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
+    resultName: {
+      ...t.text(17, '700'),
+      color: t.colors.text,
+    },
+    resultMgRow: {
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      gap: 6,
+    },
+    resultMg: {
+      ...t.text(30, '800'),
+      color: t.colors.text,
+    },
+    metaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    confidence: {
+      backgroundColor: t.colors.primarySoft,
+      borderRadius: t.radius.pill,
+      paddingHorizontal: 10,
       paddingVertical: 4,
     },
-    cancelText: {
+    confidenceLow: {
+      backgroundColor: t.colors.dangerSoft,
+    },
+    confidenceText: {
+      ...t.text(12, '700'),
+      color: t.colors.primaryDark,
+    },
+    confidenceTextLow: {
+      color: t.colors.danger,
+    },
+    metaNote: {
+      ...t.text(12, '400'),
       color: t.colors.textMuted,
-      ...t.weight('600'),
+      fontStyle: 'italic',
+    },
+    source: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+    },
+    sourceText: {
+      ...t.text(12, '500'),
+      color: t.colors.primary,
+      flex: 1,
     },
   });
