@@ -59,5 +59,6 @@ Join our community of developers creating universal apps.
 
 - Stack: Expo SDK 58 + TypeScript + Expo Router (tab JS), `react-native-svg` per anello e grafico, `AsyncStorage` per i dati (solo sul dispositivo).
 - Avvio su browser: `npm run web` → http://localhost:8081
-- I valori `mgPerPuff` e i punteggi A–E in `src/data/products.ts` sono **segnaposto** da sostituire con dati verificati.
+- Catalogo prodotti: `src/data/products.ts` (70 prodotti per categoria). Le specifiche sono quelle dichiarate dai produttori; i mg per tiro sono **stime** calcolate da `src/data/nicotine-model.ts` (fonti e costanti documentate lì).
+- Ricerca AI della nicotina: l'app chiama il backend in `server/` (vedi `server/README.md`), configurato con `EXPO_PUBLIC_AI_LOOKUP_URL`. Senza quella variabile la funzione è nascosta.
 - Il grafico usa un modello semplice di decadimento esponenziale (emivita nicotina ~2h) in `src/lib/nicotine.ts`.

@@ -9,8 +9,6 @@ type Props = {
 
 export function ScoreBadge({ score, size = 'sm' }: Props) {
   const lg = size === 'lg';
-  // C (giallo) ha bisogno di testo scuro per il contrasto.
-  const textColor = score === 'C' ? '#3A2E00' : '#FFFFFF';
   return (
     <View
       accessibilityLabel={`Punteggio ${score}`}
@@ -19,7 +17,7 @@ export function ScoreBadge({ score, size = 'sm' }: Props) {
         lg ? styles.lg : styles.sm,
         { backgroundColor: SCORE_COLORS[score] },
       ]}>
-      <Text style={[styles.text, lg ? styles.textLg : styles.textSm, { color: textColor }]}>
+      <Text style={[styles.text, lg ? styles.textLg : styles.textSm, { color: '#FFFFFF' }]}>
         {score}
       </Text>
     </View>

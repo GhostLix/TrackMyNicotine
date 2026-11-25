@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 
-import { DEFAULT_PRODUCTS, type Product } from '@/data/products';
+import { CATALOG, DEFAULT_ENABLED_IDS, type Product } from '@/data/products';
 import { prunePuffs, type Puff } from '@/lib/nicotine';
 
 const STORAGE_KEY = 'trackmynicotine/state/v1';
@@ -21,6 +21,8 @@ type PersistedState = {
   dailyLimitMg: number | null;
   /** Prodotti creati dall'utente. */
   customProducts: Product[];
+  /** Prodotti con la spunta: sono quelli che compaiono nella tendina della Home. */
+  enabledProductIds: string[];
 };
 
 const INITIAL_STATE: PersistedState = {
@@ -28,16 +30,19 @@ const INITIAL_STATE: PersistedState = {
   selectedProductId: null,
   dailyLimitMg: null,
   customProducts: [],
+  enabledProductIds: DEFAULT_ENABLED_IDS,
 };
 
-export type ProductInput = Pick<Product, 'name' | 'detail' | 'mgPerPuff'>;
+export type ProductInput = Pick<Product, 'name' | 'detail' | 'mgPerPuff' | 'category'>;
 
 type NicotineStore = PersistedState & {
   loaded: boolean;
   /** Orario corrente, aggiornato ogni 30s: guida il reset di mezzanotte e il grafico. */
   now: number;
-  /** Prodotti predefiniti + quelli dell'utente. */
+  /** Catalogo + prodotti dell'utente. */
   products: Product[];
+  /** Solo quelli con la spunta (prima i prodotti dell'utente). */
+  enabledProducts: Product[];
   selectedProduct: Product;
   addPuff: () => void;
   undoLastPuff: () => void;
@@ -45,6 +50,8 @@ type NicotineStore = PersistedState & {
   addProduct: (input: ProductInput) => void;
   updateProduct: (id: string, input: ProductInput) => void;
   deleteProduct: (id: string) => void;
+  /** Mette o toglie la spunta. Restituisce false se era l'ultimo prodotto attivo. */
+  toggleEnabled: (id: string) => boolean;
   setDailyLimit: (mg: number) => void;
   resetAll: () => void;
 };
@@ -52,11 +59,18 @@ type NicotineStore = PersistedState & {
 const NicotineContext = createContext<NicotineStore | null>(null);
 
 function allProducts(s: PersistedState): Product[] {
-  return [...DEFAULT_PRODUCTS, ...s.customProducts];
+  return [...s.customProducts, ...CATALOG];
 }
 
+function enabledOf(s: PersistedState): Product[] {
+  const enabled = new Set(s.enabledProductIds);
+  const list = allProducts(s).filter((p) => enabled.has(p.id));
+  return list.length > 0 ? list : [CATALOG[0]];
+}
+
+/** Il prodotto in uso deve avere la spunta; altrimenti si ripiega sul primo attivo. */
 function findProduct(s: PersistedState, id: string | null): Product {
-  const list = allProducts(s);
+  const list = enabledOf(s);
   return list.find((p) => p.id === id) ?? list[0];
 }
 
@@ -73,7 +87,12 @@ export function NicotineProvider({ children }: { children: ReactNode }) {
           setState({
             ...INITIAL_STATE,
             ...parsed,
-            customProducts: parsed.customProducts ?? [],
+            // Prodotti creati prima che esistessero le categorie.
+            customProducts: (parsed.customProducts ?? []).map((p) => ({
+              ...p,
+              category: p.category ?? 'liquidi',
+            })),
+            enabledProductIds: parsed.enabledProductIds ?? DEFAULT_ENABLED_IDS,
             puffs: prunePuffs(parsed.puffs ?? [], Date.now()),
           });
         }
@@ -95,6 +114,7 @@ export function NicotineProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const products = useMemo(() => allProducts(state), [state]);
+  const enabledProducts = useMemo(() => enabledOf(state), [state]);
   const selectedProduct = findProduct(state, state.selectedProductId);
 
   const addPuff = useCallback(() => {
@@ -120,7 +140,10 @@ export function NicotineProvider({ children }: { children: ReactNode }) {
     const id = `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
     setState((s) => ({
       ...s,
+      // Fissa la selezione attuale: altrimenti il nuovo prodotto (in cima alla lista) la cambierebbe.
+      selectedProductId: findProduct(s, s.selectedProductId).id,
       customProducts: [...s.customProducts, { ...input, id, custom: true }],
+      enabledProductIds: [...s.enabledProductIds, id],
     }));
   }, []);
 
@@ -135,9 +158,26 @@ export function NicotineProvider({ children }: { children: ReactNode }) {
     setState((s) => ({
       ...s,
       customProducts: s.customProducts.filter((p) => p.id !== id),
+      enabledProductIds: s.enabledProductIds.filter((e) => e !== id),
       selectedProductId: s.selectedProductId === id ? null : s.selectedProductId,
     }));
   }, []);
+
+  const toggleEnabled = useCallback(
+    (id: string) => {
+      const isEnabled = state.enabledProductIds.includes(id);
+      if (isEnabled && enabledOf(state).length <= 1) return false;
+      setState((s) => ({
+        ...s,
+        selectedProductId: findProduct(s, s.selectedProductId).id,
+        enabledProductIds: s.enabledProductIds.includes(id)
+          ? s.enabledProductIds.filter((e) => e !== id)
+          : [...s.enabledProductIds, id],
+      }));
+      return true;
+    },
+    [state],
+  );
 
   const setDailyLimit = useCallback((mg: number) => {
     setState((s) => ({ ...s, dailyLimitMg: mg }));
@@ -151,6 +191,7 @@ export function NicotineProvider({ children }: { children: ReactNode }) {
       loaded,
       now,
       products,
+      enabledProducts,
       selectedProduct,
       addPuff,
       undoLastPuff,
@@ -158,6 +199,7 @@ export function NicotineProvider({ children }: { children: ReactNode }) {
       addProduct,
       updateProduct,
       deleteProduct,
+      toggleEnabled,
       setDailyLimit,
       resetAll,
     }),
@@ -166,6 +208,7 @@ export function NicotineProvider({ children }: { children: ReactNode }) {
       loaded,
       now,
       products,
+      enabledProducts,
       selectedProduct,
       addPuff,
       undoLastPuff,
@@ -173,6 +216,7 @@ export function NicotineProvider({ children }: { children: ReactNode }) {
       addProduct,
       updateProduct,
       deleteProduct,
+      toggleEnabled,
       setDailyLimit,
       resetAll,
     ],

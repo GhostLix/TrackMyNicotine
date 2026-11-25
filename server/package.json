@@ -1,0 +1,19 @@
+{
+  "name": "trackmynicotine-ai",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Backend for the AI nicotine lookup: keeps the Anthropic API key off the device.",
+  "scripts": {
+    "dev": "node --experimental-strip-types src/node.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.14.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.10",
+    "typescript": "^7.0.2"
+  }
+}

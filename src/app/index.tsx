@@ -27,7 +27,7 @@ export default function HomeScreen() {
     now,
     puffs,
     dailyLimitMg,
-    products,
+    enabledProducts,
     selectedProduct,
     addPuff,
     undoLastPuff,
@@ -48,7 +48,7 @@ export default function HomeScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.content}>
-          <ProductPicker products={products} selected={selectedProduct} onSelect={selectProduct} />
+          <ProductPicker products={enabledProducts} selected={selectedProduct} onSelect={selectProduct} />
 
           <View style={styles.ringCard}>
             <View style={styles.ringHeader}>
