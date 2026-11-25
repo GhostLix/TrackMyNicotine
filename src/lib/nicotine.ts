@@ -57,5 +57,8 @@ export function prunePuffs(puffs: Puff[], now: number): Puff[] {
 }
 
 export function formatMg(mg: number): string {
+  if (mg === 0) return '0';
+  // Sotto 1 mg servono 3 decimali (un tiro di svapo vale ~0.01–0.06 mg), poi bastano 2 e 1.
+  if (mg < 1) return String(Math.round(mg * 1000) / 1000);
   return mg < 10 ? mg.toFixed(2) : mg.toFixed(1);
 }

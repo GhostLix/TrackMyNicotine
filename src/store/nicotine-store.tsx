@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 
-import { getProduct, type Product } from '@/data/products';
+import { DEFAULT_PRODUCTS, type Product } from '@/data/products';
 import { prunePuffs, type Puff } from '@/lib/nicotine';
 
 const STORAGE_KEY = 'trackmynicotine/state/v1';
@@ -19,27 +19,46 @@ type PersistedState = {
   selectedProductId: string | null;
   /** Limite giornaliero in mg. null = non ancora scelto (onboarding). */
   dailyLimitMg: number | null;
+  /** Prodotti creati dall'utente. */
+  customProducts: Product[];
 };
 
 const INITIAL_STATE: PersistedState = {
   puffs: [],
   selectedProductId: null,
   dailyLimitMg: null,
+  customProducts: [],
 };
+
+export type ProductInput = Pick<Product, 'name' | 'detail' | 'mgPerPuff'>;
 
 type NicotineStore = PersistedState & {
   loaded: boolean;
   /** Orario corrente, aggiornato ogni 30s: guida il reset di mezzanotte e il grafico. */
   now: number;
+  /** Prodotti predefiniti + quelli dell'utente. */
+  products: Product[];
   selectedProduct: Product;
   addPuff: () => void;
   undoLastPuff: () => void;
   selectProduct: (id: string) => void;
+  addProduct: (input: ProductInput) => void;
+  updateProduct: (id: string, input: ProductInput) => void;
+  deleteProduct: (id: string) => void;
   setDailyLimit: (mg: number) => void;
   resetAll: () => void;
 };
 
 const NicotineContext = createContext<NicotineStore | null>(null);
+
+function allProducts(s: PersistedState): Product[] {
+  return [...DEFAULT_PRODUCTS, ...s.customProducts];
+}
+
+function findProduct(s: PersistedState, id: string | null): Product {
+  const list = allProducts(s);
+  return list.find((p) => p.id === id) ?? list[0];
+}
 
 export function NicotineProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<PersistedState>(INITIAL_STATE);
@@ -51,7 +70,12 @@ export function NicotineProvider({ children }: { children: ReactNode }) {
       .then((raw) => {
         if (raw) {
           const parsed = JSON.parse(raw) as Partial<PersistedState>;
-          setState({ ...INITIAL_STATE, ...parsed, puffs: prunePuffs(parsed.puffs ?? [], Date.now()) });
+          setState({
+            ...INITIAL_STATE,
+            ...parsed,
+            customProducts: parsed.customProducts ?? [],
+            puffs: prunePuffs(parsed.puffs ?? [], Date.now()),
+          });
         }
       })
       .catch(() => {
@@ -70,13 +94,15 @@ export function NicotineProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(id);
   }, []);
 
-  const selectedProduct = getProduct(state.selectedProductId);
+  const products = useMemo(() => allProducts(state), [state]);
+  const selectedProduct = findProduct(state, state.selectedProductId);
 
   const addPuff = useCallback(() => {
     const t = Date.now();
     setNow(t);
     setState((s) => {
-      const product = getProduct(s.selectedProductId);
+      const product = findProduct(s, s.selectedProductId);
+      // I mg vengono salvati nel tiro: modificare o eliminare il prodotto non altera lo storico.
       return { ...s, puffs: [...s.puffs, { t, productId: product.id, mg: product.mgPerPuff }] };
     });
   }, []);
@@ -90,6 +116,29 @@ export function NicotineProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, selectedProductId: id }));
   }, []);
 
+  const addProduct = useCallback((input: ProductInput) => {
+    const id = `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+    setState((s) => ({
+      ...s,
+      customProducts: [...s.customProducts, { ...input, id, custom: true }],
+    }));
+  }, []);
+
+  const updateProduct = useCallback((id: string, input: ProductInput) => {
+    setState((s) => ({
+      ...s,
+      customProducts: s.customProducts.map((p) => (p.id === id ? { ...p, ...input } : p)),
+    }));
+  }, []);
+
+  const deleteProduct = useCallback((id: string) => {
+    setState((s) => ({
+      ...s,
+      customProducts: s.customProducts.filter((p) => p.id !== id),
+      selectedProductId: s.selectedProductId === id ? null : s.selectedProductId,
+    }));
+  }, []);
+
   const setDailyLimit = useCallback((mg: number) => {
     setState((s) => ({ ...s, dailyLimitMg: mg }));
   }, []);
@@ -101,14 +150,32 @@ export function NicotineProvider({ children }: { children: ReactNode }) {
       ...state,
       loaded,
       now,
+      products,
       selectedProduct,
       addPuff,
       undoLastPuff,
       selectProduct,
+      addProduct,
+      updateProduct,
+      deleteProduct,
       setDailyLimit,
       resetAll,
     }),
-    [state, loaded, now, selectedProduct, addPuff, undoLastPuff, selectProduct, setDailyLimit, resetAll],
+    [
+      state,
+      loaded,
+      now,
+      products,
+      selectedProduct,
+      addPuff,
+      undoLastPuff,
+      selectProduct,
+      addProduct,
+      updateProduct,
+      deleteProduct,
+      setDailyLimit,
+      resetAll,
+    ],
   );
 
   return <NicotineContext.Provider value={value}>{children}</NicotineContext.Provider>;

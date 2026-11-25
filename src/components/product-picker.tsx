@@ -1,12 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRef, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View, type HostInstance } from 'react-native';
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+  type HostInstance,
+} from 'react-native';
 
 import { ScoreBadge } from '@/components/score-badge';
 import { Colors, Radius, Shadow, Spacing } from '@/constants/theme';
-import { PRODUCTS, type Product } from '@/data/products';
+import { formatMgPerPuff, scoreFor, type Product } from '@/data/products';
 
 type Props = {
+  products: Product[];
   selected: Product;
   onSelect: (id: string) => void;
 };
@@ -18,9 +28,10 @@ type Anchor = { x: number; y: number; width: number; height: number };
  * sotto il pulsante, così resta sopra a tutto il resto della schermata
  * (anche su Android, dove zIndex tra fratelli è inaffidabile).
  */
-export function ProductPicker({ selected, onSelect }: Props) {
+export function ProductPicker({ products, selected, onSelect }: Props) {
   const triggerRef = useRef<HostInstance>(null);
   const [anchor, setAnchor] = useState<Anchor | null>(null);
+  const { height: windowHeight } = useWindowDimensions();
 
   const open = () => {
     triggerRef.current?.measureInWindow((x, y, width, height) => {
@@ -42,7 +53,7 @@ export function ProductPicker({ selected, onSelect }: Props) {
             {selected.name}
           </Text>
         </View>
-        <ScoreBadge score={selected.score} />
+        <ScoreBadge score={scoreFor(selected.mgPerPuff)} />
         <Ionicons
           name={anchor ? 'chevron-up' : 'chevron-down'}
           size={20}
@@ -58,7 +69,10 @@ export function ProductPicker({ selected, onSelect }: Props) {
               styles.panel,
               { top: anchor.y + anchor.height + Spacing.sm, left: anchor.x, width: anchor.width },
             ]}>
-            {PRODUCTS.map((product, index) => {
+            <ScrollView
+              style={{ maxHeight: windowHeight - (anchor.y + anchor.height) - 120 }}
+              bounces={false}>
+            {products.map((product, index) => {
               const isSelected = product.id === selected.id;
               return (
                 <Pressable
@@ -80,13 +94,14 @@ export function ProductPicker({ selected, onSelect }: Props) {
                       {product.name}
                     </Text>
                     <Text style={styles.optionDetail}>
-                      {product.detail} · {product.mgPerPuff} mg/tiro
+                      {product.detail ? `${product.detail} · ` : ''}{formatMgPerPuff(product.mgPerPuff)} mg/tiro
                     </Text>
                   </View>
-                  <ScoreBadge score={product.score} />
+                  <ScoreBadge score={scoreFor(product.mgPerPuff)} />
                 </Pressable>
               );
             })}
+            </ScrollView>
           </View>
         )}
       </Modal>

@@ -28,7 +28,8 @@ function niceMax(value: number): number {
 
 function formatTick(v: number): string {
   if (v === 0) return '0';
-  return v < 1 ? v.toFixed(2).replace(/0$/, '') : String(Math.round(v * 10) / 10);
+  // Le tacche sono quarti di un valore "tondo": 3 decimali bastano sempre (es. 0.025).
+  return String(Math.round(v * 1000) / 1000);
 }
 
 function formatHour(t: number): string {
